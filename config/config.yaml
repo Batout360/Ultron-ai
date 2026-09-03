@@ -1,0 +1,116 @@
+# ULTRON Configuration File
+# Edit this file to customize ULTRON's behavior.
+# Do NOT hard-code machine-specific paths here.
+
+assistant:
+  name: ULTRON
+  wake_word: "ultron"
+  wake_word_enabled: true
+  push_to_talk_key: "ctrl+space"
+  personality: "confident"
+  voice_response_max_words: 80   # Keep voice replies concise
+  interrupt_on_speech: true      # Stop TTS if user speaks
+
+llm:
+  provider: gpt_oss              # gpt_oss | ollama | lmstudio | openai_compat
+  endpoint: "http://localhost:11434"
+  model: "gpt-oss:20b"
+  temperature: 0.7
+  max_tokens: 1024
+  context_size: 8192
+  streaming: true
+  timeout: 60
+  retry_attempts: 2
+  retry_delay: 1.0
+
+stt:
+  provider: faster_whisper       # faster_whisper | whisper | google (online)
+  model: base                    # tiny | base | small | medium | large
+  language: auto                 # auto | en | es | fr | ...
+  device: cuda                   # cuda | cpu | auto
+  compute_type: float16          # float16 | int8 | float32
+  beam_size: 5
+  vad_filter: true
+  chunk_length_s: 30
+
+vad:
+  mode: 2                        # WebRTC VAD aggressiveness: 0-3
+  frame_duration_ms: 30          # 10 | 20 | 30
+  sample_rate: 16000
+  silence_threshold_ms: 800      # ms of silence before stopping
+  speech_threshold_ms: 200       # ms of speech before considering active
+  energy_threshold: 300          # RMS energy threshold for basic VAD
+
+tts:
+  provider: piper                # piper | edge_tts | pyttsx3 | system
+  voice: "en_US-lessac-medium"   # Piper voice model name
+  speed: 1.05
+  pitch: 0
+  edge_tts_voice: "en-US-GuyNeural"   # Fallback edge-tts voice
+  pyttsx3_rate: 185
+  streaming: true                # Stream TTS chunks
+
+audio:
+  sample_rate: 16000
+  channels: 1
+  chunk_size: 1024
+  input_device: null             # null = system default; use device index or name
+  output_device: null            # null = system default
+  activation_sound: true         # Play sound on wake word
+  activation_sound_file: "assets/sounds/activate.wav"
+
+wakeword:
+  provider: simple               # simple | pvporcupine
+  sensitivity: 0.6               # 0.0 - 1.0
+  porcupine_keyword: "ultron"    # pvporcupine keyword name
+  porcupine_access_key: ""       # Picovoice access key (free tier)
+
+performance:
+  mode: balanced                 # ultra | balanced | low_resource
+  max_workers: 4
+  ui_update_interval_ms: 50
+  reduce_effects_on_load: true   # Auto-reduce animations under heavy load
+  cpu_load_threshold: 80         # % CPU to trigger reduced mode
+  gpu_load_threshold: 90         # % GPU to trigger reduced mode
+
+memory:
+  short_term_max_turns: 20       # Max conversation turns in context
+  long_term_enabled: true
+  auto_summarize: true           # Summarize old context
+  db_path: "data/ultron.db"
+
+security:
+  require_confirmation_destructive: true
+  require_confirmation_privileged: true
+  allowed_file_extensions:
+    read: [".txt", ".md", ".py", ".json", ".yaml", ".yml", ".csv", ".log", ".ini", ".cfg", ".toml"]
+    write: [".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".log"]
+  max_file_size_mb: 50
+  blocked_paths:
+    - "C:\\Windows\\System32"
+    - "C:\\Windows\\SysWOW64"
+    - "%APPDATA%\\Microsoft\\Credentials"
+
+logging:
+  level: INFO                    # DEBUG | INFO | WARNING | ERROR
+  file: "logs/ultron.log"
+  max_file_size_mb: 10
+  backup_count: 3
+  console: true
+  structured: true
+
+ui:
+  theme: dark
+  accent_color: "#00d4ff"        # Cyan accent
+  secondary_color: "#0066ff"     # Blue
+  background_color: "#050a0f"    # Near-black
+  animation_fps: 60
+  window_width: 1200
+  window_height: 800
+  always_on_top: false
+  start_minimized: false
+  system_tray: true
+  font_family: "Segoe UI"
+  font_size: 13
+  show_performance_panel: true
+  show_status_bar: true

@@ -1,0 +1,370 @@
+[21:43:07] INFO     ultron.main               ============================================================
+[21:43:07] INFO     ultron.main               ULTRON starting - Python 3.14.5
+[21:43:07] INFO     ultron.main               Model: gpt-oss:20b @ http://localhost:11434
+[21:43:07] INFO     ultron.main               ============================================================
+[21:43:56] INFO     ultron.main               ============================================================
+[21:43:56] INFO     ultron.main               ULTRON starting - Python 3.14.5
+[21:43:56] INFO     ultron.main               Model: gpt-oss:20b @ http://localhost:11434
+[21:43:56] INFO     ultron.main               ============================================================
+[21:43:56] INFO     core.assistant            ============================================================
+[21:43:56] INFO     core.assistant            ULTRON starting up...
+[21:43:56] INFO     core.assistant            ============================================================
+[21:43:56] INFO     core.assistant            [DATABASE] initializing
+[21:43:56] INFO     storage.database          Database initialized: D:\Projects\Ultron ai\data\ultron.db
+[21:43:56] INFO     core.assistant            [DATABASE] ready
+[21:43:56] INFO     core.assistant            [MEMORY] initializing
+[21:43:56] INFO     core.memory               Loaded 0 long-term memories
+[21:43:56] INFO     core.assistant            [MEMORY] ready
+[21:43:56] INFO     core.assistant            [AUDIO] initializing
+[21:43:56] INFO     voice.audio               Audio initialized. Input: Microsoft Sound Mapper - Input | Output: Microsoft Sound Mapper - Output
+[21:43:56] INFO     core.assistant            [AUDIO] ready
+[21:43:56] INFO     core.assistant            [STT] initializing
+[21:43:56] INFO     voice.stt                 Creating STT engine: faster_whisper
+[21:43:56] INFO     voice.stt                 Loading faster-whisper 'base' on cuda (float16)...
+[21:43:56] ERROR    voice.stt                 Failed to load faster-whisper: No module named 'faster_whisper'
+[21:43:56] ERROR    core.assistant            Failed to initialize stt: No module named 'faster_whisper'
+Traceback (most recent call last):
+  File "D:\Projects\Ultron ai\core\assistant.py", line 196, in _init_stt
+    await self.stt.initialize()
+  File "D:\Projects\Ultron ai\voice\stt.py", line 78, in initialize
+    await loop.run_in_executor(self._executor, self._load_model)
+  File "C:\Python314\Lib\concurrent\futures\thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "C:\Python314\Lib\concurrent\futures\thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "D:\Projects\Ultron ai\voice\stt.py", line 85, in _load_model
+    from faster_whisper import WhisperModel
+ModuleNotFoundError: No module named 'faster_whisper'
+[21:43:56] INFO     core.assistant            [TTS] initializing
+[21:43:56] INFO     voice.tts                 Creating TTS engine: piper
+[21:43:56] INFO     voice.tts                 Initializing Piper TTS, voice: en_US-lessac-medium
+[21:43:56] ERROR    voice.tts                 Piper TTS init failed: piper-tts not installed: pip install piper-tts
+[21:43:56] WARNING  core.assistant            TTS provider 'piper' failed, trying fallback: piper-tts not installed: pip install piper-tts
+[21:43:56] INFO     voice.tts                 Creating TTS engine: pyttsx3
+[21:43:56] INFO     comtypes.client._code_cache Imported existing <module 'comtypes.gen' from 'C:\\Users\\Admin\\AppData\\Roaming\\Python\\Python314\\site-packages\\comtypes\\gen\\__init__.py'>
+[21:43:56] INFO     comtypes.client._code_cache Using writeable comtypes cache directory: 'C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\comtypes\gen'
+[21:43:56] INFO     voice.tts                 pyttsx3 TTS initialized
+[21:43:56] INFO     core.assistant            [TTS] ready (fallback: pyttsx3)
+[21:43:56] INFO     core.assistant            [LLM] connecting
+[21:43:56] INFO     ai.llm_provider           Creating LLM provider: gpt_oss (model: gpt-oss:20b)
+[21:43:56] INFO     ai.llm_provider           Ollama: model 'gpt-oss:20b' is available
+[21:43:56] INFO     core.assistant            [LLM] connected
+[21:43:56] INFO     core.assistant            GPT-OSS connected at http://localhost:11434
+[21:43:56] INFO     core.assistant            [TOOLS] initializing
+[21:43:56] INFO     tools.registry            Registered 21 tools
+[21:43:56] INFO     core.assistant            [TOOLS] ready (21 tools)
+[21:43:56] INFO     core.assistant            [WAKEWORD] initializing
+[21:43:56] INFO     voice.wakeword            Creating wake word detector: simple
+[21:43:56] INFO     voice.stt                 Loading faster-whisper 'tiny' on cuda (float16)...
+[21:43:56] ERROR    voice.stt                 Failed to load faster-whisper: No module named 'faster_whisper'
+[21:43:56] WARNING  voice.wakeword            Wake word STT init failed: No module named 'faster_whisper'
+[21:43:56] INFO     core.assistant            [WAKEWORD] active
+[21:43:56] INFO     core.state                State: INITIALIZING -> IDLE (Ready)
+[21:43:56] INFO     core.assistant            ULTRON is ONLINE and ready.
+[21:43:56] INFO     core.assistant            Processing: what year is it?
+[21:43:56] INFO     core.state                State: IDLE -> THINKING
+[21:43:58] INFO     core.assistant            First token received (1442 ms)
+[21:43:58] INFO     core.state                State: THINKING -> SPEAKING
+[21:44:00] INFO     core.state                State: SPEAKING -> IDLE
+[21:44:00] INFO     core.assistant            ULTRON shutting down...
+[21:44:00] INFO     voice.wakeword            Wake word detection stopped
+[21:44:00] INFO     voice.audio               Recording stopped
+[21:44:00] INFO     storage.database          Database closed
+[21:44:00] INFO     core.assistant            ULTRON shutdown complete.
+[21:44:37] INFO     ultron.main               ============================================================
+[21:44:37] INFO     ultron.main               ULTRON starting - Python 3.14.5
+[21:44:37] INFO     ultron.main               Model: gpt-oss:20b @ http://localhost:11434
+[21:44:37] INFO     ultron.main               ============================================================
+[21:49:48] INFO     ultron.main               ============================================================
+[21:49:48] INFO     ultron.main               ULTRON starting - Python 3.14.5
+[21:49:48] INFO     ultron.main               Model: gpt-oss:20b @ http://localhost:11434
+[21:49:48] INFO     ultron.main               ============================================================
+[21:49:49] INFO     ui.main_window            Main window initialized
+[21:49:49] INFO     core.assistant            ============================================================
+[21:49:49] INFO     core.assistant            ULTRON starting up...
+[21:49:49] INFO     core.assistant            ============================================================
+[21:49:49] INFO     core.assistant            [DATABASE] initializing
+[21:49:49] INFO     storage.database          Database initialized: d:\Projects\Ultron ai\data\ultron.db
+[21:49:49] INFO     core.assistant            [DATABASE] ready
+[21:49:49] INFO     core.assistant            [MEMORY] initializing
+[21:49:49] INFO     core.memory               Loaded 0 long-term memories
+[21:49:49] INFO     core.assistant            [MEMORY] ready
+[21:49:49] INFO     core.assistant            [AUDIO] initializing
+[21:49:49] INFO     voice.audio               Audio initialized. Input: Microsoft Sound Mapper - Input | Output: Microsoft Sound Mapper - Output
+[21:49:49] INFO     core.assistant            [AUDIO] ready
+[21:49:49] INFO     core.assistant            [STT] initializing
+[21:49:49] INFO     voice.stt                 Creating STT engine: faster_whisper
+[21:49:49] INFO     voice.stt                 Loading faster-whisper 'base' on cuda (float16)...
+[21:49:52] WARNING  huggingface_hub.utils._http Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[21:50:11] INFO     core.assistant            Processing: can you hear me
+[21:50:11] WARNING  core.state                Invalid state transition: INITIALIZING -> THINKING (allowed: ['ERROR', 'IDLE', 'OFFLINE'])
+[21:50:11] INFO     core.state                State: INITIALIZING -> OFFLINE
+[21:50:38] INFO     core.assistant            ULTRON shutting down...
+[21:50:38] INFO     voice.audio               Recording stopped
+[21:50:38] CRITICAL ultron.main               Fatal error: Event loop stopped before Future completed.
+Traceback (most recent call last):
+  File "d:\Projects\Ultron ai\main.py", line 261, in main
+    return run_app(assistant=assistant, settings=settings)
+  File "d:\Projects\Ultron ai\ui\app.py", line 62, in run_app
+    return _run_qasync(app, assistant, settings)
+  File "d:\Projects\Ultron ai\ui\app.py", line 83, in _run_qasync
+    loop.run_until_complete(_startup())
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\qasync\__init__.py", line 435, in run_until_complete
+    raise RuntimeError("Event loop stopped before Future completed.")
+RuntimeError: Event loop stopped before Future completed.
+[21:51:05] INFO     ultron.main               ============================================================
+[21:51:05] INFO     ultron.main               ULTRON starting - Python 3.14.5
+[21:51:05] INFO     ultron.main               Model: gpt-oss:20b @ http://localhost:11434
+[21:51:05] INFO     ultron.main               ============================================================
+[21:51:05] INFO     ui.main_window            Main window initialized
+[21:51:05] INFO     core.assistant            ============================================================
+[21:51:05] INFO     core.assistant            ULTRON starting up...
+[21:51:05] INFO     core.assistant            ============================================================
+[21:51:05] INFO     core.assistant            [DATABASE] initializing
+[21:51:05] INFO     storage.database          Database initialized: d:\Projects\Ultron ai\data\ultron.db
+[21:51:05] INFO     core.assistant            [DATABASE] ready
+[21:51:05] INFO     core.assistant            [MEMORY] initializing
+[21:51:05] INFO     core.memory               Loaded 0 long-term memories
+[21:51:05] INFO     core.assistant            [MEMORY] ready
+[21:51:05] INFO     core.assistant            [AUDIO] initializing
+[21:51:05] INFO     voice.audio               Audio initialized. Input: Microsoft Sound Mapper - Input | Output: Microsoft Sound Mapper - Output
+[21:51:05] INFO     core.assistant            [AUDIO] ready
+[21:51:05] INFO     core.assistant            [STT] initializing
+[21:51:05] INFO     voice.stt                 Creating STT engine: faster_whisper
+[21:51:05] INFO     voice.stt                 Loading faster-whisper 'base' on cuda (float16)...
+[21:51:07] INFO     voice.stt                 Whisper loaded in 1098 ms
+[21:51:07] INFO     core.assistant            [STT] ready
+[21:51:07] INFO     core.assistant            [TTS] initializing
+[21:51:07] INFO     voice.tts                 Creating TTS engine: piper
+[21:51:07] INFO     voice.tts                 Initializing Piper TTS, voice: en_US-lessac-medium
+[21:51:07] INFO     voice.tts                 Downloading Piper voice model: en_US-lessac-medium
+[21:51:07] INFO     voice.tts                 Downloading: https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx
+[21:51:30] INFO     voice.tts                 Piper TTS ready
+[21:51:30] INFO     core.assistant            [TTS] ready (piper)
+[21:51:30] INFO     core.assistant            [LLM] connecting
+[21:51:30] INFO     ai.llm_provider           Creating LLM provider: gpt_oss (model: gpt-oss:20b)
+[21:51:30] INFO     ai.llm_provider           Ollama: model 'gpt-oss:20b' is available
+[21:51:30] INFO     core.assistant            [LLM] connected
+[21:51:30] INFO     core.assistant            GPT-OSS connected at http://localhost:11434
+[21:51:30] INFO     core.assistant            [TOOLS] initializing
+[21:51:30] INFO     tools.registry            Registered 21 tools
+[21:51:30] INFO     core.assistant            [TOOLS] ready (21 tools)
+[21:51:30] INFO     core.assistant            [WAKEWORD] initializing
+[21:51:30] INFO     voice.wakeword            Creating wake word detector: simple
+[21:51:30] INFO     voice.stt                 Loading faster-whisper 'tiny' on cuda (float16)...
+[21:51:31] WARNING  huggingface_hub.utils._http Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[21:51:50] INFO     core.assistant            Processing: hello
+[21:51:50] WARNING  core.state                Invalid state transition: INITIALIZING -> THINKING (allowed: ['OFFLINE', 'ERROR', 'IDLE'])
+[21:51:57] INFO     core.assistant            First token received (7329 ms)
+[21:51:57] WARNING  core.state                Invalid state transition: INITIALIZING -> SPEAKING (allowed: ['OFFLINE', 'ERROR', 'IDLE'])
+[21:51:57] WARNING  core.state                Invalid state transition: INITIALIZING -> SPEAKING (allowed: ['OFFLINE', 'ERROR', 'IDLE'])
+[21:51:57] INFO     voice.stt                 Whisper loaded in 27342 ms
+[21:51:57] INFO     voice.wakeword            Simple wake word detector ready (word: 'ultron')
+[21:51:57] INFO     core.assistant            [WAKEWORD] active
+[21:51:57] INFO     core.state                State: INITIALIZING -> IDLE (Ready)
+[21:51:57] INFO     core.assistant            ULTRON is ONLINE and ready.
+[21:51:57] INFO     core.assistant            ULTRON main loop started
+[21:51:57] ERROR    qasync._QEventLoop        Exception in callback <_asyncio.TaskStepMethWrapper object at 0x000001D66C4F8220>()
+handle: <Handle <_asyncio.TaskStepMethWrapper object at 0x000001D66C4F8220>()>
+Traceback (most recent call last):
+  File "C:\Python314\Lib\asyncio\events.py", line 94, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: loop <QIOCPEventLoop running=False closed=False debug=False> is not the running loop
+[21:52:13] INFO     core.assistant            Processing: can you speak
+[21:52:13] INFO     core.state                State: IDLE -> THINKING
+[21:52:14] INFO     core.assistant            First token received (1413 ms)
+[21:52:15] INFO     core.state                State: THINKING -> SPEAKING
+[21:52:15] INFO     core.state                State: SPEAKING -> IDLE
+[21:52:21] INFO     core.assistant            Processing: yes
+[21:52:21] INFO     core.state                State: IDLE -> THINKING
+[21:52:23] INFO     core.assistant            First token received (1910 ms)
+[21:52:23] INFO     core.state                State: THINKING -> SPEAKING
+[21:52:23] INFO     core.state                State: SPEAKING -> IDLE
+[21:52:23] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['THINKING', 'INITIALIZING', 'OFFLINE', 'PAUSED', 'ERROR', 'LISTENING'])
+[21:52:38] INFO     core.assistant            Processing: can you hear me
+[21:52:38] INFO     core.state                State: IDLE -> THINKING
+[21:52:39] INFO     core.assistant            First token received (1403 ms)
+[21:52:40] INFO     core.state                State: THINKING -> SPEAKING
+[21:52:40] INFO     core.state                State: SPEAKING -> IDLE
+[21:52:40] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['THINKING', 'INITIALIZING', 'OFFLINE', 'PAUSED', 'ERROR', 'LISTENING'])
+[21:53:01] INFO     core.assistant            Processing: try now
+[21:53:01] INFO     core.state                State: IDLE -> THINKING
+[21:53:04] INFO     core.assistant            First token received (2439 ms)
+[21:53:04] INFO     core.state                State: THINKING -> SPEAKING
+[21:53:04] INFO     core.state                State: SPEAKING -> IDLE
+[21:53:05] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['THINKING', 'INITIALIZING', 'OFFLINE', 'PAUSED', 'ERROR', 'LISTENING'])
+[21:53:05] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['THINKING', 'INITIALIZING', 'OFFLINE', 'PAUSED', 'ERROR', 'LISTENING'])
+[21:53:05] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['THINKING', 'INITIALIZING', 'OFFLINE', 'PAUSED', 'ERROR', 'LISTENING'])
+[21:53:20] INFO     core.assistant            Processing: call me father
+[21:53:20] INFO     core.state                State: IDLE -> THINKING
+[21:53:25] ERROR    ai.llm_provider           Ollama stream timeout
+[21:53:25] INFO     core.assistant            First token received (5002 ms)
+[21:53:25] INFO     core.state                State: THINKING -> SPEAKING
+[21:53:25] INFO     core.state                State: SPEAKING -> IDLE
+[21:53:35] INFO     core.assistant            Processing: call me father
+[21:53:35] INFO     core.state                State: IDLE -> THINKING
+[21:53:40] ERROR    ai.llm_provider           Ollama stream timeout
+[21:53:40] INFO     core.assistant            First token received (5002 ms)
+[21:53:40] INFO     core.state                State: THINKING -> SPEAKING
+[21:53:40] INFO     core.state                State: SPEAKING -> IDLE
+[21:54:00] INFO     core.assistant            Processing: quit
+[21:54:00] INFO     core.state                State: IDLE -> THINKING
+[21:54:05] ERROR    ai.llm_provider           Ollama stream timeout
+[21:54:05] INFO     core.assistant            First token received (5010 ms)
+[21:54:05] INFO     core.state                State: THINKING -> SPEAKING
+[21:54:05] INFO     core.state                State: SPEAKING -> IDLE
+[21:54:16] INFO     core.assistant            ULTRON shutting down...
+[21:54:16] INFO     voice.wakeword            Wake word detection stopped
+[21:54:16] INFO     voice.audio               Recording stopped
+[21:54:39] INFO     ultron.main               ============================================================
+[21:54:39] INFO     ultron.main               ULTRON starting - Python 3.14.5
+[21:54:39] INFO     ultron.main               Model: gpt-oss:20b @ http://localhost:11434
+[21:54:39] INFO     ultron.main               ============================================================
+[21:54:39] INFO     ui.main_window            Main window initialized
+[21:54:40] INFO     core.assistant            ============================================================
+[21:54:40] INFO     core.assistant            ULTRON starting up...
+[21:54:40] INFO     core.assistant            ============================================================
+[21:54:40] INFO     core.assistant            [DATABASE] initializing
+[21:54:40] INFO     storage.database          Database initialized: d:\Projects\Ultron ai\data\ultron.db
+[21:54:40] INFO     core.assistant            [DATABASE] ready
+[21:54:40] INFO     core.assistant            [MEMORY] initializing
+[21:54:40] INFO     core.memory               Loaded 0 long-term memories
+[21:54:40] INFO     core.assistant            [MEMORY] ready
+[21:54:40] INFO     core.assistant            [AUDIO] initializing
+[21:54:40] INFO     voice.audio               Audio initialized. Input: Microsoft Sound Mapper - Input | Output: Microsoft Sound Mapper - Output
+[21:54:40] INFO     core.assistant            [AUDIO] ready
+[21:54:40] INFO     core.assistant            [STT] initializing
+[21:54:40] INFO     voice.stt                 Creating STT engine: faster_whisper
+[21:54:40] INFO     voice.stt                 Loading faster-whisper 'base' on cuda (float16)...
+[21:54:41] INFO     voice.stt                 Whisper loaded in 1121 ms
+[21:54:41] INFO     core.assistant            [STT] ready
+[21:54:41] INFO     core.assistant            [TTS] initializing
+[21:54:41] INFO     voice.tts                 Creating TTS engine: piper
+[21:54:41] INFO     voice.tts                 Initializing Piper TTS, voice: en_US-lessac-medium
+[21:54:42] INFO     voice.tts                 Piper TTS ready
+[21:54:42] INFO     core.assistant            [TTS] ready (piper)
+[21:54:42] INFO     core.assistant            [LLM] connecting
+[21:54:42] INFO     ai.llm_provider           Creating LLM provider: gpt_oss (model: gpt-oss:20b)
+[21:54:42] INFO     ai.llm_provider           Ollama: model 'gpt-oss:20b' is available
+[21:54:42] INFO     core.assistant            [LLM] connected
+[21:54:42] INFO     core.assistant            GPT-OSS connected at http://localhost:11434
+[21:54:42] INFO     core.assistant            [TOOLS] initializing
+[21:54:42] INFO     tools.registry            Registered 21 tools
+[21:54:42] INFO     core.assistant            [TOOLS] ready (21 tools)
+[21:54:42] INFO     core.assistant            [WAKEWORD] initializing
+[21:54:42] INFO     voice.wakeword            Creating wake word detector: simple
+[21:54:42] INFO     voice.stt                 Loading faster-whisper 'tiny' on cuda (float16)...
+[21:54:43] INFO     voice.stt                 Whisper loaded in 401 ms
+[21:54:43] INFO     voice.wakeword            Simple wake word detector ready (word: 'ultron')
+[21:54:43] INFO     core.assistant            [WAKEWORD] active
+[21:54:43] INFO     core.state                State: INITIALIZING -> IDLE (Ready)
+[21:54:43] INFO     core.assistant            ULTRON is ONLINE and ready.
+[21:54:43] INFO     core.assistant            ULTRON main loop started
+[21:54:43] ERROR    qasync._QEventLoop        Exception in callback <_asyncio.TaskStepMethWrapper object at 0x00000111A7FF07C0>()
+handle: <Handle <_asyncio.TaskStepMethWrapper object at 0x00000111A7FF07C0>()>
+Traceback (most recent call last):
+  File "C:\Python314\Lib\asyncio\events.py", line 94, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: loop <QIOCPEventLoop running=False closed=False debug=False> is not the running loop
+[21:56:04] INFO     core.conversation         Conversation cleared.
+[21:56:09] INFO     core.assistant            Processing: hi ultron
+[21:56:09] INFO     core.state                State: IDLE -> THINKING
+[21:56:11] INFO     core.assistant            First token received (1375 ms)
+[21:56:11] INFO     core.state                State: THINKING -> SPEAKING
+[21:56:11] INFO     core.state                State: SPEAKING -> IDLE
+[21:56:11] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['LISTENING', 'OFFLINE', 'PAUSED', 'ERROR', 'THINKING', 'INITIALIZING'])
+[21:56:11] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['LISTENING', 'OFFLINE', 'PAUSED', 'ERROR', 'THINKING', 'INITIALIZING'])
+[21:56:30] INFO     core.assistant            Processing: hi ultronb
+[21:56:30] INFO     core.state                State: IDLE -> THINKING
+[21:56:31] INFO     core.assistant            First token received (1189 ms)
+[21:56:31] INFO     core.state                State: THINKING -> SPEAKING
+[21:56:31] INFO     core.state                State: SPEAKING -> IDLE
+[21:56:31] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['LISTENING', 'OFFLINE', 'PAUSED', 'ERROR', 'THINKING', 'INITIALIZING'])
+[21:56:32] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['LISTENING', 'OFFLINE', 'PAUSED', 'ERROR', 'THINKING', 'INITIALIZING'])
+[21:56:51] INFO     core.assistant            ULTRON shutting down...
+[21:56:51] INFO     voice.wakeword            Wake word detection stopped
+[21:56:51] INFO     voice.audio               Recording stopped
+[23:19:20] INFO     ultron.main               ============================================================
+[23:19:20] INFO     ultron.main               ULTRON starting - Python 3.14.5
+[23:19:20] INFO     ultron.main               Model: gpt-oss:20b @ http://localhost:11434
+[23:19:20] INFO     ultron.main               ============================================================
+[23:19:21] INFO     ui.main_window            Main window initialized
+[23:19:21] INFO     core.assistant            ============================================================
+[23:19:21] INFO     core.assistant            ULTRON starting up...
+[23:19:21] INFO     core.assistant            ============================================================
+[23:19:21] INFO     core.assistant            [DATABASE] initializing
+[23:19:21] INFO     storage.database          Database initialized: d:\Projects\Ultron ai\data\ultron.db
+[23:19:21] INFO     core.assistant            [DATABASE] ready
+[23:19:21] INFO     core.assistant            [MEMORY] initializing
+[23:19:21] INFO     core.memory               Loaded 0 long-term memories
+[23:19:21] INFO     core.assistant            [MEMORY] ready
+[23:19:21] INFO     core.assistant            [AUDIO] initializing
+[23:19:21] INFO     voice.audio               Audio initialized. Input: Microsoft Sound Mapper - Input | Output: Microsoft Sound Mapper - Output
+[23:19:21] INFO     core.assistant            [AUDIO] ready
+[23:19:21] INFO     core.assistant            [STT] initializing
+[23:19:21] INFO     voice.stt                 Creating STT engine: faster_whisper
+[23:19:21] INFO     voice.stt                 Loading faster-whisper 'base' on cuda (float16)...
+[23:19:23] INFO     voice.stt                 Whisper loaded in 1674 ms
+[23:19:23] INFO     core.assistant            [STT] ready
+[23:19:23] INFO     core.assistant            [TTS] initializing
+[23:19:23] INFO     voice.tts                 Creating TTS engine: piper
+[23:19:23] INFO     voice.tts                 Initializing Piper TTS, voice: en_US-lessac-medium
+[23:19:24] INFO     voice.tts                 Piper TTS ready
+[23:19:24] INFO     core.assistant            [TTS] ready (piper)
+[23:19:24] INFO     core.assistant            [LLM] connecting
+[23:19:24] INFO     ai.llm_provider           Creating LLM provider: gpt_oss (model: gpt-oss:20b)
+[23:19:24] INFO     ai.llm_provider           Ollama: model 'gpt-oss:20b' is available
+[23:19:24] INFO     core.assistant            [LLM] connected
+[23:19:24] INFO     core.assistant            GPT-OSS connected at http://localhost:11434
+[23:19:24] INFO     core.assistant            [TOOLS] initializing
+[23:19:24] INFO     tools.registry            Registered 21 tools
+[23:19:24] INFO     core.assistant            [TOOLS] ready (21 tools)
+[23:19:24] INFO     core.assistant            [WAKEWORD] initializing
+[23:19:24] INFO     voice.wakeword            Creating wake word detector: simple
+[23:19:24] INFO     voice.stt                 Loading faster-whisper 'tiny' on cuda (float16)...
+[23:19:25] INFO     voice.stt                 Whisper loaded in 454 ms
+[23:19:25] INFO     voice.wakeword            Simple wake word detector ready (word: 'ultron')
+[23:19:25] INFO     core.assistant            [WAKEWORD] active
+[23:19:25] INFO     core.state                State: INITIALIZING -> IDLE (Ready)
+[23:19:25] INFO     core.assistant            ULTRON is ONLINE and ready.
+[23:19:25] INFO     core.assistant            ULTRON main loop started
+[23:19:25] INFO     voice.wakeword            Wake word detection started
+[23:19:35] INFO     core.assistant            Processing: hi bro how are you
+[23:19:35] INFO     core.state                State: IDLE -> THINKING
+[23:19:47] INFO     core.assistant            First token received (11882 ms)
+[23:19:47] INFO     core.state                State: THINKING -> SPEAKING
+[23:19:47] INFO     core.state                State: SPEAKING -> IDLE
+[23:19:47] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['LISTENING', 'OFFLINE', 'THINKING', 'ERROR', 'INITIALIZING', 'PAUSED'])
+[23:19:47] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['LISTENING', 'OFFLINE', 'THINKING', 'ERROR', 'INITIALIZING', 'PAUSED'])
+[23:20:46] INFO     core.assistant            Processing: hehehe
+[23:20:46] INFO     core.state                State: IDLE -> THINKING
+[23:20:47] INFO     core.assistant            First token received (1205 ms)
+[23:20:47] INFO     core.state                State: THINKING -> SPEAKING
+[23:20:47] INFO     core.state                State: SPEAKING -> IDLE
+[23:20:47] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['LISTENING', 'OFFLINE', 'THINKING', 'ERROR', 'INITIALIZING', 'PAUSED'])
+[23:20:58] INFO     core.assistant            Processing: your mom
+[23:20:58] INFO     core.state                State: IDLE -> THINKING
+[23:20:59] INFO     core.assistant            First token received (1462 ms)
+[23:21:00] INFO     core.state                State: THINKING -> SPEAKING
+[23:21:00] INFO     core.state                State: SPEAKING -> IDLE
+[23:21:10] INFO     core.assistant            Processing: open youtube
+[23:21:10] INFO     core.state                State: IDLE -> THINKING
+[23:21:11] INFO     core.state                State: THINKING -> TOOL_RUNNING
+[23:21:11] INFO     core.state                State: TOOL_RUNNING -> THINKING
+[23:21:36] INFO     core.assistant            Processing: bro
+[23:21:38] INFO     core.assistant            First token received (2057 ms)
+[23:21:38] INFO     core.state                State: THINKING -> SPEAKING
+[23:21:38] INFO     core.state                State: SPEAKING -> IDLE
+[23:21:39] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['LISTENING', 'OFFLINE', 'THINKING', 'ERROR', 'INITIALIZING', 'PAUSED'])
+[23:21:46] INFO     core.assistant            Processing: what is youtube
+[23:21:46] INFO     core.state                State: IDLE -> THINKING
+[23:21:51] ERROR    ai.llm_provider           Ollama stream timeout
+[23:21:51] INFO     core.assistant            First token received (5002 ms)
+[23:21:51] INFO     core.state                State: THINKING -> SPEAKING
+[23:21:51] INFO     core.state                State: SPEAKING -> IDLE
+[23:22:24] INFO     core.assistant            ULTRON shutting down...
+[23:22:24] INFO     voice.wakeword            Wake word detection stopped
+[23:22:24] INFO     voice.audio               Recording stopped
