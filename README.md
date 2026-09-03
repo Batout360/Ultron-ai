@@ -31,10 +31,10 @@ TTS: Piper / Edge TTS
 | Component | Minimum | Your Hardware |
 |-----------|---------|---------------|
 | Python | 3.10+ | 3.14.5 ✓ |
-| RAM | 8 GB | 31 GB ✓ |
-| GPU VRAM | 8 GB (for gpt-oss:20b) | 16 GB ✓ |
+| RAM | 8 GB |
+| GPU VRAM | 8 GB (for gpt-oss:20b) | 16 GB recomended |
 | OS | Windows 10+ | Windows 11 ✓ |
-| Ollama | 0.3.0+ | Running ✓ |
+| Ollama | 0.3.0+ | Running  |
 
 ---
 
@@ -43,7 +43,7 @@ TTS: Piper / Edge TTS
 ### 1. Clone / download the project
 
 ```
-D:\Projects\Ultron ai\
+\Projects\Ultron ai\
 ```
 
 ### 2. Install dependencies
