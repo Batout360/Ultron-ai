@@ -368,3 +368,83 @@ RuntimeError: loop <QIOCPEventLoop running=False closed=False debug=False> is no
 [23:22:24] INFO     core.assistant            ULTRON shutting down...
 [23:22:24] INFO     voice.wakeword            Wake word detection stopped
 [23:22:24] INFO     voice.audio               Recording stopped
+[20:13:53] INFO     ultron.main               ============================================================
+[20:13:53] INFO     ultron.main               ULTRON starting - Python 3.14.5
+[20:13:53] INFO     ultron.main               Model: gpt-oss:20b @ http://localhost:11434
+[20:13:53] INFO     ultron.main               ============================================================
+[20:13:54] INFO     ui.main_window            Main window initialized
+[20:13:54] INFO     core.assistant            ============================================================
+[20:13:54] INFO     core.assistant            ULTRON starting up...
+[20:13:54] INFO     core.assistant            ============================================================
+[20:13:54] INFO     core.assistant            [DATABASE] initializing
+[20:13:54] INFO     storage.database          Database initialized: d:\Projects\Ultron ai\data\ultron.db
+[20:13:54] INFO     core.assistant            [DATABASE] ready
+[20:13:54] INFO     core.assistant            [MEMORY] initializing
+[20:13:54] INFO     core.memory               Loaded 0 long-term memories
+[20:13:54] INFO     core.assistant            [MEMORY] ready
+[20:13:54] INFO     core.assistant            [AUDIO] initializing
+[20:13:55] INFO     voice.audio               Audio initialized. Input: Microsoft Sound Mapper - Input | Output: Microsoft Sound Mapper - Output
+[20:13:55] INFO     core.assistant            [AUDIO] ready
+[20:13:55] INFO     core.assistant            [STT] initializing
+[20:13:55] INFO     voice.stt                 Creating STT engine: faster_whisper
+[20:13:55] INFO     voice.stt                 Loading faster-whisper 'base' on cuda (float16)...
+[20:13:58] INFO     voice.stt                 Whisper loaded in 3343 ms
+[20:13:58] INFO     core.assistant            [STT] ready
+[20:13:58] INFO     core.assistant            [TTS] initializing
+[20:13:58] INFO     voice.tts                 Creating TTS engine: piper
+[20:13:58] INFO     voice.tts                 Initializing Piper TTS, voice: en_US-lessac-medium
+[20:14:00] INFO     voice.tts                 Piper TTS ready
+[20:14:00] INFO     core.assistant            [TTS] ready (piper)
+[20:14:00] INFO     core.assistant            [LLM] connecting
+[20:14:00] INFO     ai.llm_provider           Creating LLM provider: gpt_oss (model: gpt-oss:20b)
+[20:14:00] INFO     ai.llm_provider           Ollama: model 'gpt-oss:20b' is available
+[20:14:00] INFO     core.assistant            [LLM] connected
+[20:14:00] INFO     core.assistant            GPT-OSS connected at http://localhost:11434
+[20:14:00] INFO     core.assistant            [TOOLS] initializing
+[20:14:00] INFO     tools.registry            Registered 21 tools
+[20:14:00] INFO     core.assistant            [TOOLS] ready (21 tools)
+[20:14:00] INFO     core.assistant            [WAKEWORD] initializing
+[20:14:00] INFO     voice.wakeword            Creating wake word detector: simple
+[20:14:00] INFO     voice.stt                 Loading faster-whisper 'tiny' on cuda (float16)...
+[20:14:01] INFO     voice.stt                 Whisper loaded in 538 ms
+[20:14:01] INFO     voice.wakeword            Simple wake word detector ready (word: 'ultron')
+[20:14:01] INFO     core.assistant            [WAKEWORD] active
+[20:14:01] INFO     core.state                State: INITIALIZING -> IDLE (Ready)
+[20:14:01] INFO     core.assistant            ULTRON is ONLINE and ready.
+[20:14:01] INFO     core.assistant            ULTRON main loop started
+[20:14:01] ERROR    qasync._QEventLoop        Exception in callback <_asyncio.TaskStepMethWrapper object at 0x000001B32FC2D510>()
+handle: <Handle <_asyncio.TaskStepMethWrapper object at 0x000001B32FC2D510>()>
+Traceback (most recent call last):
+  File "C:\Python314\Lib\asyncio\events.py", line 94, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: loop <QIOCPEventLoop running=False closed=False debug=False> is not the running loop
+[20:14:13] INFO     core.assistant            Processing: hi ultrom
+[20:14:13] INFO     core.state                State: IDLE -> THINKING
+[20:14:13] ERROR    qasync._QEventLoop        Task was destroyed but it is pending!
+task: <Task pending name='Task-19' coro=<SimpleWakeWordDetector.run() running at d:\Projects\Ultron ai\voice\wakeword.py:90>>
+[20:14:27] INFO     core.assistant            First token received (13930 ms)
+[20:14:27] INFO     core.state                State: THINKING -> SPEAKING
+[20:14:27] INFO     core.state                State: SPEAKING -> IDLE
+[20:14:27] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['INITIALIZING', 'OFFLINE', 'LISTENING', 'PAUSED', 'THINKING', 'ERROR'])
+[20:14:33] INFO     core.assistant            Processing: im good
+[20:14:33] INFO     core.state                State: IDLE -> THINKING
+[20:14:34] INFO     core.assistant            First token received (1126 ms)
+[20:14:34] INFO     core.state                State: THINKING -> SPEAKING
+[20:14:34] INFO     core.state                State: SPEAKING -> IDLE
+[20:14:34] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['INITIALIZING', 'OFFLINE', 'LISTENING', 'PAUSED', 'THINKING', 'ERROR'])
+[20:14:56] INFO     core.assistant            Processing: vhuta
+[20:14:56] INFO     core.state                State: IDLE -> THINKING
+[20:14:58] INFO     core.assistant            First token received (2573 ms)
+[20:14:58] INFO     core.state                State: THINKING -> SPEAKING
+[20:14:58] INFO     core.state                State: SPEAKING -> IDLE
+[20:14:59] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['INITIALIZING', 'OFFLINE', 'LISTENING', 'PAUSED', 'THINKING', 'ERROR'])
+[20:15:07] INFO     core.assistant            Processing: niresh is hutra
+[20:15:07] INFO     core.state                State: IDLE -> THINKING
+[20:15:09] INFO     core.assistant            First token received (2061 ms)
+[20:15:09] INFO     core.state                State: THINKING -> SPEAKING
+[20:15:09] INFO     core.state                State: SPEAKING -> IDLE
+[20:15:09] WARNING  core.state                Invalid state transition: IDLE -> SPEAKING (allowed: ['INITIALIZING', 'OFFLINE', 'LISTENING', 'PAUSED', 'THINKING', 'ERROR'])
+[20:15:25] INFO     core.assistant            ULTRON shutting down...
+[20:15:25] INFO     voice.wakeword            Wake word detection stopped
+[20:15:25] INFO     voice.audio               Recording stopped

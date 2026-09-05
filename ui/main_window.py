@@ -1,575 +1,465 @@
-"""
-ULTRON Main Window
-The primary UI window. Futuristic dark design with:
-- Left panel: animated orb + status
-- Center: conversation chat
-- Right panel: performance metrics
-- Bottom: input bar with PTT
-"""
+# ui/main_window.py
+# Full HUD Layout — Pure Holographic Orange Command Center
 
-from __future__ import annotations
-
-import asyncio
-import logging
-from typing import Optional
-
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QThread
-from PyQt6.QtGui import QColor, QFont, QIcon, QKeyEvent, QPalette, QShortcut, QKeySequence
-from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QLineEdit, QFrame, QSplitter, QSystemTrayIcon,
-    QMenu, QMessageBox, QSizePolicy
+from PySide6.QtWidgets import (
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
+    QLabel, QSizePolicy, QFrame,
+)
+from PySide6.QtCore    import Qt, QTimer
+from PySide6.QtGui     import (
+    QPainter, QPen, QColor, QFont, QBrush,
+    QPainterPath, QLinearGradient, QRadialGradient,
 )
 
-from core.state import AssistantState
-from core.event_bus import Event, EventType, get_event_bus
-from ui.animations import OrbWidget
-from ui.components.chat_widget import ChatWidget
-from ui.components.panels import StatusPanel, MetricsPanel
-
-logger = logging.getLogger(__name__)
-
-# ──────────────────────────────────────────
-# Stylesheet
-# ──────────────────────────────────────────
-
-MAIN_STYLESHEET = """
-QMainWindow, QWidget {
-    background-color: #050a0f;
-    color: #c0d8e8;
-}
-QLabel {
-    color: #c0d8e8;
-}
-QPushButton {
-    background-color: #0d1f3c;
-    color: #00d4ff;
-    border: 1px solid #1a3a6e;
-    border-radius: 6px;
-    padding: 6px 14px;
-    font-family: Consolas;
-    font-size: 11px;
-    letter-spacing: 1px;
-}
-QPushButton:hover {
-    background-color: #142850;
-    border-color: #00d4ff;
-}
-QPushButton:pressed {
-    background-color: #001a33;
-}
-QPushButton:disabled {
-    color: #446;
-    border-color: #223;
-}
-QLineEdit {
-    background-color: #070f1a;
-    color: #c0d8f0;
-    border: 1px solid #1a3a5e;
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 13px;
-    font-family: 'Segoe UI';
-    selection-background-color: #1a4070;
-}
-QLineEdit:focus {
-    border-color: #00d4ff;
-}
-QSplitter::handle {
-    background-color: #0d2040;
-}
-QScrollBar:vertical {
-    background: #050a0f;
-    width: 6px;
-}
-"""
-
-
-class AsyncBridge(QObject):
-    """
-    Bridge between the Qt main thread and the asyncio event loop.
-    Allows async operations to update the Qt UI via signals.
-    """
-    state_changed = pyqtSignal(object)           # AssistantState
-    status_updated = pyqtSignal(str, str)         # component, status
-    user_message = pyqtSignal(str)
-    assistant_token = pyqtSignal(str)
-    assistant_message_start = pyqtSignal()
-    assistant_message_complete = pyqtSignal(str)
-    metrics_updated = pyqtSignal(dict)
-    confirmation_needed = pyqtSignal(str, str, str)  # id, tool, message
-    notification = pyqtSignal(str)
-
-
-class MainWindow(QMainWindow):
-    """ULTRON's main application window."""
-
-    def __init__(self, assistant=None, settings=None) -> None:
-        super().__init__()
-        self._assistant = assistant
-        self._settings = settings
-        self._bridge = AsyncBridge()
-        self._bus = get_event_bus()
-        self._ptt_active = False
-
-        self._setup_window()
-        self._setup_ui()
-        self._setup_shortcuts()
-        self._connect_bridge()
-        self._subscribe_events()
-
-        # System metrics update timer
-        self._metrics_timer = QTimer(self)
-        self._metrics_timer.timeout.connect(self._update_system_metrics)
-        self._metrics_timer.start(2000)
-
-        logger.info("Main window initialized")
-
-    def _setup_window(self) -> None:
-        """Configure the main window."""
-        cfg = self._settings.ui if self._settings else None
-        title = "ULTRON"
-        self.setWindowTitle(title)
-        self.setMinimumSize(900, 600)
-
-        w = cfg.window_width if cfg else 1200
-        h = cfg.window_height if cfg else 800
-        self.resize(w, h)
-
-        # Center on screen
-        screen = self.screen().availableGeometry()
-        self.move(
-            (screen.width() - w) // 2,
-            (screen.height() - h) // 2,
-        )
-
-        self.setStyleSheet(MAIN_STYLESHEET)
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-
-    def _setup_ui(self) -> None:
-        """Build the UI layout."""
-        central = QWidget()
-        self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-
-        # ── Header bar ──
-        header = self._make_header()
-        main_layout.addWidget(header)
-
-        # ── Main content area ──
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setHandleWidth(1)
-
-        # Left: orb + status
-        left_panel = self._make_left_panel()
-        splitter.addWidget(left_panel)
-
-        # Center: chat
-        self._chat = ChatWidget()
-        self._chat.setMinimumWidth(400)
-        splitter.addWidget(self._chat)
-
-        # Right: metrics
-        self._metrics_panel = MetricsPanel()
-        self._metrics_panel.setFixedWidth(200)
-        splitter.addWidget(self._metrics_panel)
-
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setStretchFactor(2, 0)
-        splitter.setSizes([280, 700, 200])
-
-        main_layout.addWidget(splitter, stretch=1)
-
-        # ── Input bar ──
-        input_bar = self._make_input_bar()
-        main_layout.addWidget(input_bar)
-
-    def _make_header(self) -> QWidget:
-        """Top header bar with logo, name, status."""
-        header = QFrame()
-        header.setFixedHeight(48)
-        header.setStyleSheet("""
-            QFrame {
-                background-color: #020810;
-                border-bottom: 1px solid #0d2040;
-            }
-        """)
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(16, 0, 16, 0)
-
-        # Logo / name
-        logo = QLabel("⬡ ULTRON")
-        logo.setStyleSheet(
-            "color: #00d4ff; font-size: 18px; font-family: Consolas; "
-            "font-weight: bold; letter-spacing: 4px;"
-        )
-        layout.addWidget(logo)
-        layout.addStretch()
-
-        # Status chip
-        self._header_status = QLabel("ONLINE")
-        self._header_status.setStyleSheet(
-            "color: #00ff88; font-size: 10px; font-family: Consolas; "
-            "background: #001a0f; border: 1px solid #00ff8844; "
-            "border-radius: 4px; padding: 2px 8px;"
-        )
-        layout.addWidget(self._header_status)
-
-        # Settings/close buttons
-        for text, slot in [("⚙", self._open_settings), ("✕", self.close)]:
-            btn = QPushButton(text)
-            btn.setFixedSize(32, 32)
-            btn.setStyleSheet("""
-                QPushButton { background: transparent; border: none; color: #445; font-size: 14px; }
-                QPushButton:hover { color: #00d4ff; }
-            """)
-            btn.clicked.connect(slot)
-            layout.addWidget(btn)
-
-        return header
-
-    def _make_left_panel(self) -> QWidget:
-        """Left panel: orb animation + status indicators."""
-        panel = QWidget()
-        panel.setFixedWidth(280)
-        panel.setStyleSheet("background-color: #030810;")
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
-
-        # Orb
-        self._orb = OrbWidget()
-        self._orb.setFixedHeight(280)
-        layout.addWidget(self._orb, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        # Status panel
-        self._status_panel = StatusPanel()
-        layout.addWidget(self._status_panel)
-
-        layout.addStretch()
-
-        # Voice mode toggle
-        self._voice_btn = QPushButton("🎤  VOICE MODE: ON")
-        self._voice_btn.setCheckable(True)
-        self._voice_btn.setChecked(True)
-        self._voice_btn.setStyleSheet("""
-            QPushButton {
-                background: #0a1e0a;
-                border: 1px solid #1a5a1a;
-                color: #00cc44;
-                font-size: 10px;
-                font-family: Consolas;
-                padding: 6px;
-                border-radius: 6px;
-            }
-            QPushButton:checked {
-                background: #0a1e0a;
-                border-color: #00cc44;
-            }
-            QPushButton:!checked {
-                background: #0a0a0a;
-                border-color: #333;
-                color: #666;
-            }
-        """)
-        self._voice_btn.toggled.connect(self._toggle_voice)
-        layout.addWidget(self._voice_btn)
-
-        return panel
-
-    def _make_input_bar(self) -> QWidget:
-        """Bottom input bar for text input."""
-        bar = QFrame()
-        bar.setFixedHeight(60)
-        bar.setStyleSheet("""
-            QFrame {
-                background-color: #030810;
-                border-top: 1px solid #0d2040;
-            }
-        """)
-        layout = QHBoxLayout(bar)
-        layout.setContentsMargins(12, 8, 12, 8)
-        layout.setSpacing(8)
-
-        # PTT button
-        self._ptt_btn = QPushButton("⬤")
-        self._ptt_btn.setFixedSize(40, 40)
-        self._ptt_btn.setStyleSheet("""
-            QPushButton {
-                background: #0a1020;
-                border: 2px solid #1a3a6e;
-                border-radius: 20px;
-                color: #335577;
-                font-size: 16px;
-            }
-            QPushButton:pressed {
-                background: #001530;
-                border-color: #00d4ff;
-                color: #00d4ff;
-            }
-        """)
-        self._ptt_btn.pressed.connect(self._ptt_press)
-        self._ptt_btn.released.connect(self._ptt_release)
-        layout.addWidget(self._ptt_btn)
-
-        # Text input
-        self._input = QLineEdit()
-        self._input.setPlaceholderText("Type a message or press Ctrl+Space for voice...")
-        self._input.returnPressed.connect(self._send_text)
-        layout.addWidget(self._input)
-
-        # Send button
-        send_btn = QPushButton("SEND")
-        send_btn.setFixedWidth(70)
-        send_btn.clicked.connect(self._send_text)
-        layout.addWidget(send_btn)
-
-        # Clear button
-        clear_btn = QPushButton("CLR")
-        clear_btn.setFixedWidth(50)
-        clear_btn.setStyleSheet("""
-            QPushButton { color: #446; border-color: #223; }
-            QPushButton:hover { color: #ff4444; border-color: #ff4444; }
-        """)
-        clear_btn.clicked.connect(self._clear_conversation)
-        layout.addWidget(clear_btn)
-
-        return bar
-
-    def _setup_shortcuts(self) -> None:
-        """Register keyboard shortcuts."""
-        # Ctrl+Space: Push-to-talk
-        ptt_shortcut = QShortcut(QKeySequence("Ctrl+Space"), self)
-        ptt_shortcut.activated.connect(self._toggle_ptt)
-
-    def _connect_bridge(self) -> None:
-        """Connect the async bridge signals to Qt UI slots."""
-        self._bridge.state_changed.connect(self._on_state_changed)
-        self._bridge.status_updated.connect(self._on_status_updated)
-        self._bridge.user_message.connect(self._on_user_message)
-        self._bridge.assistant_message_start.connect(self._chat.begin_assistant_message)
-        self._bridge.assistant_token.connect(self._chat.append_token)
-        self._bridge.assistant_message_complete.connect(self._chat.finalize_assistant_message)
-        self._bridge.metrics_updated.connect(self._on_metrics_updated)
-        self._bridge.confirmation_needed.connect(self._on_confirmation_needed)
-        self._bridge.notification.connect(self._show_notification)
-
-    def _subscribe_events(self) -> None:
-        """Subscribe to event bus events. These run in async context."""
-        bus = self._bus
-        bus.subscribe(EventType.STATE_CHANGED, self._ev_state_changed)
-        bus.subscribe(EventType.UI_UPDATE_STATUS, self._ev_status_update)
-        bus.subscribe(EventType.USER_MESSAGE, self._ev_user_message)
-        bus.subscribe(EventType.LLM_REQUEST_START, self._ev_llm_start)
-        bus.subscribe(EventType.LLM_TOKEN, self._ev_llm_token)
-        bus.subscribe(EventType.LLM_RESPONSE_COMPLETE, self._ev_llm_complete)
-        bus.subscribe(EventType.TOOL_CONFIRMATION_NEEDED, self._ev_confirmation_needed)
-        bus.subscribe(EventType.UI_NOTIFICATION, self._ev_notification)
-        bus.subscribe(EventType.UI_UPDATE_METRICS, self._ev_metrics_update)
-
-    # ──── Event handlers (async, emit to bridge) ────
-
-    def _ev_state_changed(self, event: Event) -> None:
-        state = event.data.get("state")
-        if state:
-            self._bridge.state_changed.emit(state)
-
-    def _ev_status_update(self, event: Event) -> None:
-        comp = event.data.get("component", "")
-        status = event.data.get("status", "")
-        self._bridge.status_updated.emit(comp, status)
-
-    def _ev_user_message(self, event: Event) -> None:
-        text = event.data.get("text", "")
-        self._bridge.user_message.emit(text)
-
-    def _ev_llm_start(self, event: Event) -> None:
-        self._bridge.assistant_message_start.emit()
-
-    def _ev_llm_token(self, event: Event) -> None:
-        token = event.data.get("token", "")
-        if token:
-            self._bridge.assistant_token.emit(token)
-
-    def _ev_llm_complete(self, event: Event) -> None:
-        text = event.data.get("text", "")
-        self._bridge.assistant_message_complete.emit(text)
-
-    def _ev_confirmation_needed(self, event: Event) -> None:
-        req_id = event.data.get("id", "")
-        tool = event.data.get("tool", "")
-        message = event.data.get("message", "")
-        self._bridge.confirmation_needed.emit(req_id, tool, message)
-
-    def _ev_notification(self, event: Event) -> None:
-        msg = event.data.get("message", "")
-        self._bridge.notification.emit(msg)
-
-    def _ev_metrics_update(self, event: Event) -> None:
-        self._bridge.metrics_updated.emit(event.data)
-
-    # ──── Qt UI slots ────
-
-    def _on_state_changed(self, state: AssistantState) -> None:
-        """Update UI to reflect new state."""
-        self._orb.set_state(state)
-
-        labels = {
-            AssistantState.IDLE: ("ONLINE", "#00ff88"),
-            AssistantState.LISTENING: ("LISTENING", "#00d4ff"),
-            AssistantState.PROCESSING: ("PROCESSING", "#4488ff"),
-            AssistantState.THINKING: ("THINKING", "#aa44ff"),
-            AssistantState.SPEAKING: ("SPEAKING", "#00ff88"),
-            AssistantState.TOOL_RUNNING: ("EXECUTING", "#ffaa00"),
-            AssistantState.CONFIRMING: ("CONFIRM?", "#ffaa00"),
-            AssistantState.ERROR: ("ERROR", "#ff4444"),
-            AssistantState.OFFLINE: ("OFFLINE", "#666666"),
-        }
-        text, color = labels.get(state, ("...", "#888888"))
-        self._header_status.setText(text)
-        self._header_status.setStyleSheet(
-            f"color: {color}; font-size: 10px; font-family: Consolas; "
-            f"background: #000; border: 1px solid {color}55; "
-            f"border-radius: 4px; padding: 2px 8px;"
-        )
-
-    def _on_status_updated(self, component: str, status: str) -> None:
-        self._status_panel.update_component(component, status)
-
-    def _on_user_message(self, text: str) -> None:
-        self._chat.add_user_message(text)
-
-    def _on_metrics_updated(self, data: dict) -> None:
-        stt = data.get("stt_latency_ms", 0)
-        llm = data.get("llm_latency_ms", 0)
-        tts = data.get("tts_latency_ms", 0)
-        tok = data.get("tokens_per_sec", 0)
-        self._metrics_panel.update_latencies(stt, llm, tts, tok)
-
-    def _on_confirmation_needed(self, req_id: str, tool: str, message: str) -> None:
-        """Show a confirmation dialog for a tool operation."""
-        box = QMessageBox(self)
-        box.setWindowTitle("Confirm Action")
-        box.setText(f"ULTRON wants to: {tool}")
-        box.setInformativeText(message)
-        box.setStandardButtons(
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        box.setDefaultButton(QMessageBox.StandardButton.No)
-        box.setStyleSheet("""
-            QMessageBox { background: #0a1020; color: #c0d8e8; }
-            QPushButton { min-width: 80px; }
-        """)
-        result = box.exec()
-        approved = result == QMessageBox.StandardButton.Yes
-
-        # Publish result back
-        self._bus.publish_sync(Event(
-            type=EventType.TOOL_CONFIRMATION_RESULT,
-            data={"id": req_id, "approved": approved},
-        ))
-
-    def _show_notification(self, message: str) -> None:
-        self._chat.add_system_message(message)
-
-    # ──── Input handling ────
-
-    def _send_text(self) -> None:
-        text = self._input.text().strip()
-        if not text:
-            return
-        self._input.clear()
-        if self._assistant:
-            asyncio.ensure_future(self._assistant.process_text_input(text))
-
-    def _ptt_press(self) -> None:
-        """Push-to-talk: start listening."""
-        self._ptt_active = True
-        self._bus.publish_sync(Event(
-            type=EventType.VAD_SPEECH_START,
-            data={"source": "ptt"},
-        ))
-
-    def _ptt_release(self) -> None:
-        """Push-to-talk: stop listening."""
-        self._ptt_active = False
-        self._bus.publish_sync(Event(
-            type=EventType.VAD_SPEECH_END,
-            data={"source": "ptt"},
-        ))
-
-    def _toggle_ptt(self) -> None:
-        """Keyboard shortcut handler for push-to-talk."""
-        if not self._ptt_active:
-            self._ptt_press()
+import theme as C
+from ui.ai_core         import AICoreWidget
+from ui.hud_panel       import HUDPanel, MetricRow, StatusDot
+from ui.system_log      import SystemLogWidget
+from ui.telemetry       import TelemetryGraph, EnvironmentWidget, AIActivityWidget
+from ui.command_console import CommandConsole
+from services.system_monitor  import SystemMonitor
+from services.ai_engine       import AIEngine
+from services.telemetry_service import TelemetryService
+
+
+# ---------------------------------------------------------------------------
+# Background grid / scan-line canvas
+# ---------------------------------------------------------------------------
+class _Background(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._phase = 0.0
+        t = QTimer(self)
+        t.timeout.connect(self._tick)
+        t.start(C.ANIMATION_TICK_MS)
+
+    def _tick(self):
+        self._phase += 0.012
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        w, h = self.width(), self.height()
+
+        # Base fill
+        p.fillRect(0, 0, w, h, QColor(C.COLOR_BG))
+
+        # Grid
+        grid_col = QColor(C.COLOR_GRID)
+        p.setPen(QPen(grid_col, 0.5))
+        step = 32
+        for x in range(0, w, step):
+            p.drawLine(x, 0, x, h)
+        for y in range(0, h, step):
+            p.drawLine(0, y, w, y)
+
+        # Radial vignette
+        vig = QRadialGradient(w / 2, h / 2, max(w, h) * 0.65)
+        clear = QColor(0, 0, 0, 0)
+        edge  = QColor(0, 0, 0, 160)
+        vig.setColorAt(0.0, clear)
+        vig.setColorAt(1.0, edge)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.fillRect(0, 0, w, h, QBrush(vig))
+
+        # Moving horizontal scan line
+        import math
+        sy = int((h * 0.5) + (h * 0.45) * math.sin(self._phase))
+        scan_col = QColor(C.COLOR_PRIMARY); scan_col.setAlpha(12)
+        p.setPen(QPen(scan_col, 2))
+        p.drawLine(0, sy, w, sy)
+
+        p.end()
+
+
+# ---------------------------------------------------------------------------
+# Thin divider line
+# ---------------------------------------------------------------------------
+class _Divider(QWidget):
+    def __init__(self, orientation="h", parent=None):
+        super().__init__(parent)
+        self._ori = orientation
+        if orientation == "h":
+            self.setFixedHeight(2)
         else:
-            self._ptt_release()
+            self.setFixedWidth(2)
+        self.setStyleSheet("background: transparent;")
 
-    def _toggle_voice(self, checked: bool) -> None:
-        self._voice_btn.setText(
-            "🎤  VOICE MODE: ON" if checked else "🔇  VOICE MODE: OFF"
-        )
+    def paintEvent(self, event):
+        p = QPainter(self)
+        col = QColor(C.COLOR_PRIMARY); col.setAlpha(60)
+        p.setPen(QPen(col, 1))
+        if self._ori == "h":
+            p.drawLine(0, 0, self.width(), 0)
+        else:
+            p.drawLine(0, 0, 0, self.height())
+        p.end()
 
-    def _clear_conversation(self) -> None:
-        self._chat.clear()
-        if self._assistant:
-            self._assistant.conversation.clear()
 
-    def _open_settings(self) -> None:
-        from PyQt6.QtWidgets import QDialog
-        dlg = QMessageBox(self)
-        dlg.setWindowTitle("Settings")
-        dlg.setText(
-            "Edit config.yaml in the config/ folder to change settings.\n"
-            "Restart ULTRON for changes to take effect."
-        )
-        dlg.exec()
+# ---------------------------------------------------------------------------
+# Header bar
+# ---------------------------------------------------------------------------
+class _HeaderBar(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(36)
+        self.setStyleSheet("background: transparent;")
+        self._llm_online = False   # updated by AIEngine signal
 
-    def _update_system_metrics(self) -> None:
-        """Update CPU/RAM/GPU display every 2 seconds."""
-        try:
-            import psutil
-            cpu = psutil.cpu_percent()
-            ram = psutil.virtual_memory().percent
+    def set_llm_status(self, status: str):
+        self._llm_online = (status == "online")
+        self.update()
 
-            # GPU via nvidia-smi
-            gpu = 0.0
-            vram = 0.0
-            try:
-                import subprocess
-                result = subprocess.run(
-                    ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total",
-                     "--format=csv,noheader,nounits"],
-                    capture_output=True, text=True, timeout=2
-                )
-                if result.returncode == 0:
-                    parts = result.stdout.strip().split(",")
-                    if len(parts) >= 3:
-                        gpu = float(parts[0].strip())
-                        vram_used = float(parts[1].strip())
-                        vram_total = float(parts[2].strip())
-                        vram = (vram_used / vram_total * 100) if vram_total > 0 else 0
-            except Exception:
-                pass
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
 
-            self._metrics_panel.update_system(cpu, ram, gpu, vram)
+        # Background
+        bg = QLinearGradient(0, 0, 0, h)
+        bg.setColorAt(0, QColor(C.COLOR_BG_PANEL))
+        bg.setColorAt(1, QColor(C.COLOR_BG))
+        p.fillRect(0, 0, w, h, QBrush(bg))
 
-            # Also update assistant metrics if available
-            if self._assistant:
-                m = self._assistant.metrics
-                self._metrics_panel.update_latencies(
-                    stt_ms=m.get("stt_latency_ms", 0),
-                    llm_ms=m.get("llm_latency_ms", 0),
-                    tts_ms=m.get("tts_latency_ms", 0),
-                    tokens_sec=m.get("tokens_per_sec", 0),
-                )
-        except ImportError:
-            pass
+        # Bottom border glow
+        line_col = QColor(C.COLOR_PRIMARY); line_col.setAlpha(100)
+        p.setPen(QPen(line_col, 1))
+        p.drawLine(0, h - 1, w, h - 1)
 
-    def closeEvent(self, event) -> None:
-        if self._assistant:
-            asyncio.ensure_future(self._assistant.shutdown())
-        super().closeEvent(event)
+        # ULTRON title
+        title_col = QColor(C.COLOR_BRIGHT)
+        p.setPen(title_col)
+        font = QFont(C.FONT_HUD, 14)
+        font.setBold(True)
+        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 8)
+        p.setFont(font)
+        p.drawText(16, 0, 200, h, Qt.AlignmentFlag.AlignVCenter, "ULTRON")
+
+        # Version
+        ver_col = QColor(C.COLOR_DIM)
+        p.setPen(ver_col)
+        font2 = QFont(C.FONT_MONO, C.FONT_SIZE_SMALL)
+        p.setFont(font2)
+        p.drawText(16, 0, 260, h, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+                   f"v{C.APP_VERSION}")
+
+        # Corner indicators
+        for i, label in enumerate(["AI CORE", "NET", "SYS", "MEM"]):
+            x = w // 2 - 100 + i * 55
+            dot_col = QColor(C.COLOR_PRIMARY)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(dot_col))
+            p.drawEllipse(x, h // 2 - 3, 6, 6)
+            lbl_col = QColor(C.COLOR_TEXT_MID)
+            p.setPen(lbl_col)
+            font3 = QFont(C.FONT_MONO, 7)
+            p.setFont(font3)
+            p.drawText(x + 10, 0, 44, h, Qt.AlignmentFlag.AlignVCenter, label)
+
+        # Status right
+        p.setPen(QColor(C.COLOR_PRIMARY))
+        font4 = QFont(C.FONT_MONO, C.FONT_SIZE_SMALL)
+        font4.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
+        p.setFont(font4)
+        p.drawText(w - 180, 0, 168, h,
+                   Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+                   "● SYSTEM ONLINE")
+
+        # LLM status dot (far right, small)
+        llm_col = QColor(C.COLOR_PRIMARY if self._llm_online else C.COLOR_WARN)
+        llm_label = "LLM ●" if self._llm_online else "LLM ○"
+        p.setPen(llm_col)
+        font5 = QFont(C.FONT_MONO, 7)
+        p.setFont(font5)
+        p.drawText(w - 56, 0, 50, h,
+                   Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+                   llm_label)
+        p.end()
+
+
+# ---------------------------------------------------------------------------
+# Left Column
+# ---------------------------------------------------------------------------
+class _LeftColumn(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(C.LEFT_PANEL_W)
+        self.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(6)
+
+        # ── SYSTEM STATUS ──────────────────────────────────────
+        self._sys_panel = HUDPanel("SYSTEM STATUS", self)
+        layout.addWidget(self._sys_panel)
+
+        self._cpu_row  = MetricRow("CPU")
+        self._ram_row  = MetricRow("RAM")
+        self._disk_row = MetricRow("DISK")
+        self._net_row  = MetricRow("NET ↑")
+        self._netd_row = MetricRow("NET ↓")
+        self._temp_row = MetricRow("TEMP")
+        for r in [self._cpu_row, self._ram_row, self._disk_row,
+                  self._net_row, self._netd_row, self._temp_row]:
+            self._sys_panel.content_layout.addWidget(r)
+
+        # ── AI STATUS ──────────────────────────────────────────
+        self._ai_panel = HUDPanel("AI STATUS", self)
+        layout.addWidget(self._ai_panel)
+
+        self._neural_row = MetricRow("NEURAL")
+        self._proc_row   = MetricRow("PROC")
+        self._conf_row   = MetricRow("CONF")
+        self._task_dot   = StatusDot("MONITORING")
+        for r in [self._neural_row, self._proc_row, self._conf_row, self._task_dot]:
+            self._ai_panel.content_layout.addWidget(r)
+
+        # ── SYSTEM LOG ────────────────────────────────────────
+        log_panel = HUDPanel("SYSTEM LOG", self)
+        log_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(log_panel, 1)
+
+        self.log_widget = SystemLogWidget(log_panel)
+        log_panel.content_layout.addWidget(self.log_widget)
+
+    # ------------------------------------------------------------------
+    def update_system(self, data: dict):
+        self._cpu_row.set_value(data["cpu_pct"],  f"{data['cpu_pct']:.0f}%")
+        self._ram_row.set_value(data["ram_pct"],  f"{data['ram_pct']:.0f}%")
+        self._disk_row.set_value(data["disk_pct"],f"{data['disk_pct']:.0f}%")
+        up_kb = data["net_up"] / 1024
+        dn_kb = data["net_down"] / 1024
+        self._net_row.set_value( min(up_kb / 10, 100), f"{up_kb:.0f}KB/s")
+        self._netd_row.set_value(min(dn_kb / 10, 100), f"{dn_kb:.0f}KB/s")
+        if data["cpu_temp"] > 0:
+            self._temp_row.set_value(data["cpu_temp"] / 100 * 100,
+                                     f"{data['cpu_temp']:.0f}°C")
+        else:
+            self._temp_row.set_value(38, "38°C")
+
+    def update_ai(self, data: dict):
+        self._neural_row.set_value(data["neural"])
+        self._proc_row.set_value(data["processing"])
+        self._conf_row.set_value(data["confidence"])
+        self._task_dot._label = data["task"]
+        self._task_dot.update()
+
+
+# ---------------------------------------------------------------------------
+# Right Column
+# ---------------------------------------------------------------------------
+class _RightColumn(QWidget):
+    def __init__(self, telemetry: TelemetryService, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(C.RIGHT_PANEL_W)
+        self.setStyleSheet("background: transparent;")
+        self._tele = telemetry
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(6)
+
+        # ── TELEMETRY GRAPHS ──────────────────────────────────
+        tele_panel = HUDPanel("TELEMETRY", self)
+        layout.addWidget(tele_panel)
+
+        self._cpu_graph = TelemetryGraph("CPU ACTIVITY", C.COLOR_PRIMARY)
+        self._ram_graph = TelemetryGraph("MEMORY",       C.COLOR_ACCENT)
+        self._net_graph = TelemetryGraph("NETWORK ↑",    C.COLOR_GLOW)
+        self._ai_graph  = TelemetryGraph("AI PROCESSING",C.COLOR_BRIGHT)
+
+        for g in [self._cpu_graph, self._ram_graph,
+                  self._net_graph, self._ai_graph]:
+            tele_panel.content_layout.addWidget(g)
+
+        # ── ENVIRONMENT ───────────────────────────────────────
+        env_panel = HUDPanel("ENVIRONMENT", self)
+        layout.addWidget(env_panel)
+        self._env_widget = EnvironmentWidget(env_panel)
+        env_panel.content_layout.addWidget(self._env_widget)
+
+        # ── AI ACTIVITY ───────────────────────────────────────
+        act_panel = HUDPanel("AI ACTIVITY", self)
+        layout.addWidget(act_panel)
+        self._act_widget = AIActivityWidget(act_panel)
+        act_panel.content_layout.addWidget(self._act_widget)
+
+        layout.addStretch()
+
+    # ------------------------------------------------------------------
+    def refresh_graphs(self):
+        self._cpu_graph.set_history(self._tele.cpu)
+        self._ram_graph.set_history(self._tele.ram)
+        self._net_graph.set_history(self._tele.net_up)
+        self._ai_graph.set_history(self._tele.ai_proc)
+
+    def update_ai(self, data: dict):
+        self._act_widget.set_ai_state(data)
+
+    def update_env(self):
+        self._env_widget.set_env(self._tele.env)
+
+
+# ---------------------------------------------------------------------------
+# Main Window
+# ---------------------------------------------------------------------------
+class MainWindow(QMainWindow):
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("ULTRON — AI Command Center")
+
+        # ── Services ──────────────────────────────────────────
+        self._monitor  = SystemMonitor(self)
+        self._ai       = AIEngine(self)
+        self._telemetry = TelemetryService(self)
+
+        self._monitor.data_updated.connect(self._telemetry.on_system_data)
+        self._ai.state_updated.connect(self._telemetry.on_ai_data)
+
+        # ── Central transparent widget ─────────────────────────
+        central = QWidget(self)
+        central.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setCentralWidget(central)
+
+        root = QVBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        # Background (paint layer)
+        self._bg = _Background(central)
+        self._bg.setGeometry(0, 0, 1920, 1080)
+        self._bg.lower()
+
+        # Header
+        self._header = _HeaderBar(central)
+        root.addWidget(self._header)
+        root.addWidget(_Divider("h"))
+
+        # Middle: left + center + right
+        middle = QWidget(central)
+        middle.setStyleSheet("background: transparent;")
+        mid_layout = QHBoxLayout(middle)
+        mid_layout.setContentsMargins(4, 4, 4, 4)
+        mid_layout.setSpacing(6)
+
+        # Left
+        self._left = _LeftColumn(middle)
+        mid_layout.addWidget(self._left)
+
+        mid_layout.addWidget(_Divider("v"))
+
+        # Center — AI Core
+        center_widget = QWidget(middle)
+        center_widget.setStyleSheet("background: transparent;")
+        center_layout = QVBoxLayout(center_widget)
+        center_layout.setContentsMargins(4, 4, 4, 4)
+        center_layout.setSpacing(4)
+
+        self._ai_core = AICoreWidget(center_widget)
+        self._ai_core.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        center_layout.addWidget(self._ai_core, 1)
+
+        # Uptime row under core
+        self._uptime_label = QLabel("UPTIME: 00:00:00")
+        self._uptime_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self._uptime_label.setStyleSheet(
+            f"color: {C.COLOR_DIM}; font-family: {C.FONT_MONO}; "
+            f"font-size: {C.FONT_SIZE_SMALL}px; background: transparent; letter-spacing: 2px;")
+        center_layout.addWidget(self._uptime_label)
+
+        mid_layout.addWidget(center_widget, 1)
+
+        mid_layout.addWidget(_Divider("v"))
+
+        # Right
+        self._right = _RightColumn(self._telemetry, middle)
+        mid_layout.addWidget(self._right)
+
+        root.addWidget(middle, 1)
+
+        # Bottom console
+        root.addWidget(_Divider("h"))
+        bottom = QWidget(central)
+        bottom.setFixedHeight(C.BOTTOM_H)
+        bottom.setStyleSheet("background: transparent;")
+        btm_layout = QHBoxLayout(bottom)
+        btm_layout.setContentsMargins(8, 4, 8, 4)
+        btm_layout.setSpacing(0)
+
+        self._console = CommandConsole(bottom)
+        btm_layout.addWidget(self._console)
+        root.addWidget(bottom)
+
+        # ── Wire signals ──────────────────────────────────────
+        self._monitor.data_updated.connect(self._on_system_data)
+        self._ai.state_updated.connect(self._on_ai_data)
+        self._telemetry.history_updated.connect(self._on_telemetry)
+        self._console.command_entered.connect(self._on_command)
+        self._ai.response_ready.connect(self._on_ai_response)
+        self._ai.llm_thinking.connect(self._on_llm_thinking)
+        self._ai.llm_status.connect(self._on_llm_status)
+
+        # ── Start services ────────────────────────────────────
+        self._monitor.start()
+        self._ai.start()
+
+        # Env refresh timer
+        self._env_timer = QTimer(self)
+        self._env_timer.timeout.connect(self._right.update_env)
+        self._env_timer.start(3500)
+
+        # Ensure keyboard focus on console
+        QTimer.singleShot(200, self._console.give_focus)
+
+        # Show maximized only after all attributes (including _bg) are set
+        self.showMaximized()
+
+    # ------------------------------------------------------------------
+    # Slots
+    # ------------------------------------------------------------------
+    def _on_system_data(self, data: dict):
+        self._left.update_system(data)
+        self._uptime_label.setText(f"UPTIME: {data['uptime']}")
+
+    def _on_ai_data(self, data: dict):
+        self._ai_core.update_ai_state(data)
+        self._left.update_ai(data)
+        self._right.update_ai(data)
+
+    def _on_telemetry(self):
+        self._right.refresh_graphs()
+
+    def _on_command(self, cmd: str):
+        # Log command
+        self._left.log_widget.add_command_event(cmd)
+
+        # Handle 'clear' locally
+        if cmd.strip().lower() == "clear":
+            self._console.clear_output()
+            return
+
+        # Delegate to AI engine
+        self._ai.handle_command(cmd)
+
+    def _on_ai_response(self, line: str):
+        self._console.add_response(line)
+        self._left.log_widget.add_response_event(line)
+
+    def _on_llm_thinking(self, thinking: bool):
+        """Show/hide a THINKING... indicator in the console."""
+        if thinking:
+            self._console.set_thinking(True)
+        else:
+            self._console.set_thinking(False)
+
+    def _on_llm_status(self, status: str):
+        """Update the header bar with LLM online/offline state."""
+        self._header.set_llm_status(status)
+
+    # ------------------------------------------------------------------
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, '_bg'):
+            self._bg.setGeometry(0, 0, self.width(), self.height())
