@@ -23,24 +23,38 @@ A futuristic AI HUD command center built with **Python + PySide6**, inspired by 
 
 ## Features
 
-- **Pure Holographic Orange** color theme — glowing orange on near-black
-- **Animated AI Core** — rotating rings, radar sweep, particle field, pulsing sphere
-- **Real System Monitoring** — CPU, RAM, disk, network via `psutil`
-- **Live Telemetry Graphs** — scrolling waveforms for CPU / memory / network / AI
-- **System Log** — continuously updating event feed with boot sequence
-- **Futuristic Command Console** — blinking cursor, command history (↑/↓), scrolling output
-- **AI Response Engine** — responds to typed commands with simulated intelligence
-- **HUD Panels** — hover glow, corner notches, glass background, collapsible
+- **100% Local AI** — powered by your `gpt-oss:20b` model via Ollama
+- **Voice I/O** — faster-whisper STT (CUDA-accelerated) + Piper/Edge TTS
+- **Streaming** — tokens stream to UI and audio as they're generated
+- **Wake Word** — say "Ultron" to activate
+- **Computer Control** — open apps, search web, manage files, control volume
+- **Long-term Memory** — remember facts across sessions (SQLite)
+- **Futuristic UI** — animated orb, real-time metrics, dark theme
+- **Security** — LLM is sandboxed; no arbitrary code execution
+
+---
+
+## Requirements
+
+| Component | Minimum | Your Hardware |
+|-----------|---------|---------------|
+| Python | 3.10+ | 3.14.5 ✓ |
+| RAM | 8 GB | 31 GB ✓ |
+| GPU VRAM | 8 GB (for gpt-oss:20b) | 16 GB ✓ |
+| OS | Windows 10+ | Windows 11 ✓ |
+| Ollama | 0.3.0+ | Running ✓ |
 
 ---
 
 ## Installation
 
-### Requirements
-- Python 3.10+
-- Windows / macOS / Linux
+### 1. Clone / download the project
 
-### 1. Install dependencies
+```
+D:\Projects\Ultron ai\
+```
+
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
