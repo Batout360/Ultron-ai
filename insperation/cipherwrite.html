@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particles Swarm Export</title>
+    <style>body { margin: 0; overflow: hidden; background: #000; }</style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // CONFIG
+        const COUNT = 20000;
+        const SPEED_MULT = 1;
+        const AUTO_SPIN = true;
+
+        // SETUP
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.01);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 0, 100);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = AUTO_SPIN;
+        controls.autoRotateSpeed = 2.0;
+
+        // POST PROCESSING
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.strength = 1.8; bloomPass.radius = 0.4; bloomPass.threshold = 0;
+        composer.addPass(bloomPass);
+
+        // SWARM OBJECTS
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+        const target = new THREE.Vector3();
+        const pColor = new THREE.Color(); // Kept for safety, for potential references
+        
+        // INSTANCED MESH
+        const geometry = new THREE.TetrahedronGeometry(0.25);
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        
+        const instancedMesh = new THREE.InstancedMesh(geometry, material, COUNT);
+        instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(instancedMesh);
+
+        // DATA ARRAYS
+        const positions = [];
+        for(let i=0; i<COUNT; i++) {
+            positions.push(new THREE.Vector3((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*100));
+            instancedMesh.setColorAt(i, color.setHex(0x00ff88)); // Init Color
+        }
+
+        // CONTROL STUBS
+        const PARAMS = {"coreSize":22.4,"shieldRadius":30,"spinSpeed":1.2,"flowSpeed":0};
+        const addControl = (id, label, min, max, val) => {
+            return PARAMS[id] !== undefined ? PARAMS[id] : val;
+        };
+        const setInfo = () => {};
+        const annotate = () => {};
+
+        // ANIMATION LOOP
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime() * SPEED_MULT;
+            
+            // Shader Time Update
+            if(material.uniforms && material.uniforms.uTime) {
+                material.uniforms.uTime.value = time;
+            }
+
+            controls.update();
+
+            // SWARM LOGIC
+            const count = COUNT; // Alias for user code compatibility
+            for(let i=0; i<COUNT; i++) {
+                 // USER CODE INJECTION START
+                 const coreSize = addControl("coreSize", "Data Vault Size", 10, 50, 22);
+                 const shieldRadius = addControl("shieldRadius", "Shield Scale", 30, 200, 75);
+                 const spinSpeed = addControl("spinSpeed", "Encryption Spin", 0, 5, 1.2);
+                 const flowSpeed = addControl("flowSpeed", "Ingress Speed", 0, 10, 2.5);
+                 
+                 if (i === 0) {
+                     setInfo("CipherWrite Vault", "Interactive Zero-Knowledge Encryption Topology");
+                     annotate("label_core", new THREE.Vector3(0, coreSize + 15, 0), "ENCRYPTED USER DATA");
+                     annotate("label_shield", new THREE.Vector3(shieldRadius * 1.5 + 20, 0, 0), "AES-256 KNOT SHIELD");
+                     annotate("label_stream", new THREE.Vector3(shieldRadius * 1.5 + 100, 20, 0), "INCOMING PLAINTEXT");
+                 }
+                 
+                 const n = i / count; 
+                 let xp = 0.0, yp = 0.0, zp = 0.0;
+                 let hue = 0.0, sat = 1.0, lit = 0.5;
+                 
+                 if (n < 0.20) {
+                     const coreCount = count * 0.20;
+                     const phi = Math.acos(1 - 2 * (i / coreCount)); 
+                     const theta = Math.PI * (1 + Math.sqrt(5)) * i; 
+                     
+                     const pulse = Math.sin(time * 3.0) * 1.5;
+                     const r = coreSize + pulse;
+                     
+                     xp = r * Math.sin(phi) * Math.cos(theta - time * 0.2);
+                     yp = r * Math.sin(phi) * Math.sin(theta - time * 0.2);
+                     zp = r * Math.cos(phi);
+                     
+                     hue = 0.58; 
+                     sat = 0.9;
+                     lit = 0.5 + Math.sin(i * 0.1 + time * 4.0) * 0.2; 
+                 } 
+                 else if (n < 0.65) {
+                     const knotIndex = i - (count * 0.20);
+                     const knotCount = count * 0.45;
+                     
+                     const t = (knotIndex / knotCount) * Math.PI * 2.0 * 50.0 + (time * spinSpeed * 0.3);
+                     const p = 5.0; 
+                     const q = 9.0; 
+                     
+                     const r_knot = Math.cos(q * t) + 4.0; 
+                     let kx = r_knot * Math.cos(p * t);
+                     let ky = r_knot * Math.sin(p * t);
+                     let kz = -Math.sin(q * t) * 2.5;
+                     
+                     const scale = shieldRadius * 0.25;
+                     kx *= scale; ky *= scale; kz *= scale;
+                     
+                     const noise = Math.sin(i * 137.5) * 2.0;
+                     kx += Math.cos(i) * noise;
+                     ky += Math.sin(i) * noise;
+                     kz += Math.cos(i * 0.5) * noise;
+                     
+                     const yaw = time * spinSpeed * 0.15;
+                     xp = kx * Math.cos(yaw) - kz * Math.sin(yaw);
+                     yp = ky;
+                     zp = kx * Math.sin(yaw) + kz * Math.cos(yaw);
+                     
+                     hue = 0.38 + (Math.sin(t * 3.0) * 0.08); 
+                     sat = 1.0;
+                     lit = 0.5 + Math.sin(t * 15.0) * 0.2;
+                 }
+                 else if (n < 0.85) {
+                     const barrierIndex = i - (count * 0.65);
+                     const barrierCount = count * 0.20;
+                     
+                     const phi = Math.acos(1 - 2 * (barrierIndex / barrierCount)); 
+                     const theta = Math.PI * (1 + Math.sqrt(5)) * barrierIndex + time * 0.05; 
+                     
+                     const r = shieldRadius * 1.5;
+                     
+                     xp = r * Math.sin(phi) * Math.cos(theta);
+                     yp = r * Math.sin(phi) * Math.sin(theta);
+                     zp = r * Math.cos(phi);
+                     
+                     const interference = Math.sin(12.0 * phi) * Math.sin(12.0 * theta + time * spinSpeed * 1.5);
+                     
+                     xp += Math.sign(interference) * 3.0;
+                     yp += Math.sign(interference) * 3.0;
+                     zp += Math.sign(interference) * 3.0;
+                     
+                     hue = 0.5; 
+                     sat = 0.8;
+                     lit = interference > 0.1 ? 0.6 : 0.15;
+                 }
+                 else {
+                     const streamIndex = i - (count * 0.85);
+                     const streamCount = count * 0.15;
+                     
+                     const streamId = Math.floor(streamIndex) % 12;
+                     const streamAngle = (streamId / 12.0) * Math.PI * 2.0 + time * 0.15;
+                     const elevation = Math.sin(streamId * 1.6) * Math.PI * 0.3; 
+                     
+                     const progress = 1.0 - ((streamIndex / streamCount + time * flowSpeed * 0.05) % 1.0);
+                     const dist = shieldRadius * 1.5 + progress * 250.0;
+                     
+                     const px = dist * Math.cos(streamAngle) * Math.cos(elevation);
+                     const py = dist * Math.sin(elevation);
+                     const pz = dist * Math.sin(streamAngle) * Math.cos(elevation);
+                     
+                     const swirlRadius = Math.max(0, progress * 15.0 - 2.0);
+                     const swirlAngle = progress * 60.0 + i * 0.1;
+                     
+                     xp = px + Math.cos(swirlAngle) * swirlRadius;
+                     yp = py + Math.sin(swirlAngle) * swirlRadius;
+                     zp = pz + Math.cos(streamAngle + Math.PI/2) * Math.cos(swirlAngle) * swirlRadius;
+                     
+                     hue = 0.45 - (progress * 0.40);
+                     sat = 1.0;
+                     lit = 0.6 * (1.1 - progress);
+                 }
+                 
+                 target.set(xp, yp, zp);
+                 color.setHSL(hue, sat, lit);
+                 
+                 // USER CODE INJECTION END
+
+                 // LERP & UPDATE
+                 positions[i].lerp(target, 0.1);
+                 dummy.position.copy(positions[i]);
+                 dummy.updateMatrix();
+                 instancedMesh.setMatrixAt(i, dummy.matrix);
+                 instancedMesh.setColorAt(i, color); // Fix: Use 'color' which user modifies
+            }
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            instancedMesh.instanceColor.needsUpdate = true;
+
+            composer.render();
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

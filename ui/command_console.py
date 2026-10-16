@@ -1,10 +1,16 @@
-# ui/command_console.py
-# Futuristic command console — Pure Holographic Orange
+# ui/command_console.py — ULTRON 3.0
+# Command Console — JARVIS / Iron Man HUD aesthetic
+#
+# v3.0 changes:
+#   • _clipped_path / glass fill now imported from ui.utils (single source)
+#   • Long output lines elided with fm.elidedText (no overflow)
+#   • rangeChanged autoscroll replaces singleShot hack
+#   • Glass fill uses PANEL_GLASS tokens via panel_glass_fill()
 
 import math
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout,
-    QLineEdit, QScrollArea, QLabel, QSizePolicy,
+    QScrollArea, QSizePolicy,
 )
 from PySide6.QtCore    import Qt, Signal, QTimer, QRectF, QPointF
 from PySide6.QtGui     import (
@@ -12,17 +18,18 @@ from PySide6.QtGui     import (
     QPainterPath, QLinearGradient, QKeyEvent,
 )
 import theme as C
+from ui.utils import clipped_path, panel_glass_fill
 
 
-# ---------------------------------------------------------------------------
-# Output line widget
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────
+# Output line
+# ─────────────────────────────────────────────────────────────────
 class _OutputLine(QWidget):
     def __init__(self, text: str, is_input: bool = False, parent=None):
         super().__init__(parent)
         self._text     = text
         self._is_input = is_input
-        self.setFixedHeight(17)
+        self.setFixedHeight(C.ROW_H_LOG)
         self.setStyleSheet("background: transparent;")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -32,35 +39,41 @@ class _OutputLine(QWidget):
         w, h = self.width(), self.height()
         font = QFont(C.FONT_MONO, C.FONT_SIZE_BODY)
         p.setFont(font)
+        fm = p.fontMetrics()
 
         if self._is_input:
-            # Prefix ">"
-            pre_col = QColor(C.COLOR_GLOW)
-            p.setPen(pre_col)
+            # Prompt in cyan, command text in gold — elide if too long
+            pc = QColor(C.CYAN); pc.setAlpha(200)
+            p.setPen(pc)
             p.drawText(0, 0, 14, h, Qt.AlignmentFlag.AlignVCenter, ">")
-            txt_col = QColor(C.COLOR_BRIGHT)
-            p.setPen(txt_col)
-            p.drawText(16, 0, w - 16, h, Qt.AlignmentFlag.AlignVCenter, self._text)
+            tc = QColor(C.GOLD)
+            p.setPen(tc)
+            avail_w = w - 16
+            elided  = fm.elidedText(self._text, Qt.TextElideMode.ElideRight, avail_w)
+            p.drawText(16, 0, avail_w, h, Qt.AlignmentFlag.AlignVCenter, elided)
         else:
-            txt_col = QColor(C.COLOR_TEXT_MID)
-            p.setPen(txt_col)
-            p.drawText(4, 0, w - 4, h, Qt.AlignmentFlag.AlignVCenter, self._text)
+            tc = QColor(C.COLOR_TEXT_MID)
+            p.setPen(tc)
+            avail_w = w - 4
+            elided  = fm.elidedText(self._text, Qt.TextElideMode.ElideRight, avail_w)
+            p.drawText(4, 0, avail_w, h, Qt.AlignmentFlag.AlignVCenter, elided)
         p.end()
 
 
-# ---------------------------------------------------------------------------
-# Output scroll area
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────
+# Output area
+# ─────────────────────────────────────────────────────────────────
 class _OutputArea(QWidget):
     MAX_LINES = 120
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._lines: list[_OutputLine] = []
-        self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(4, 4, 4, 4)
-        self._layout.setSpacing(1)
-        self._layout.addStretch()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(1)
+        layout.addStretch()
+        self._layout = layout
         self.setStyleSheet("background: transparent;")
 
     def add_line(self, text: str, is_input: bool = False):
@@ -73,15 +86,15 @@ class _OutputArea(QWidget):
             old.deleteLater()
 
 
-# ---------------------------------------------------------------------------
-# Blinking cursor input field
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────
+# HUD input field
+# ─────────────────────────────────────────────────────────────────
 class _HUDInput(QWidget):
     submitted = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(32)
+        self.setFixedHeight(C.INPUT_H)
         self.setStyleSheet("background: transparent;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -92,19 +105,14 @@ class _HUDInput(QWidget):
         self._hist_idx   = -1
         self._phase      = 0.0
 
-        self._cur_timer = QTimer(self)
-        self._cur_timer.timeout.connect(self._blink)
-        self._cur_timer.start(530)
-
-        self._anim_timer = QTimer(self)
-        self._anim_timer.timeout.connect(self._anim_tick)
-        self._anim_timer.start(C.ANIMATION_TICK_MS)
+        QTimer(self, timeout=self._blink, interval=530).start(530)
+        QTimer(self, timeout=self._tick,  interval=C.ANIMATION_TICK_MS).start(C.ANIMATION_TICK_MS)
 
     def _blink(self):
         self._cursor_vis = not self._cursor_vis
         self.update()
 
-    def _anim_tick(self):
+    def _tick(self):
         self._phase += 0.05
         self.update()
 
@@ -143,68 +151,68 @@ class _HUDInput(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
 
-        # Glow border
-        glow_intensity = 0.6 + 0.4 * math.sin(self._phase)
-        border_col = QColor(C.COLOR_PRIMARY)
-        border_col.setAlpha(int(180 * glow_intensity))
-        pen = QPen(border_col, 1.5)
-        p.setPen(pen)
+        # Border pulsing with focus
+        focused = self.hasFocus()
+        pulse   = 0.6 + 0.4 * math.sin(self._phase) if focused else 0.25
+        bc = QColor(C.CYAN); bc.setAlpha(int(255 * pulse))
+        p.setPen(QPen(bc, 1.0))
         p.setBrush(Qt.BrushStyle.NoBrush)
 
-        path = QPainterPath()
-        path.addRoundedRect(0, 1, w, h - 2, 3, 3)
+        # Clipped top-right input shape
+        path = clipped_path(0, 0, w, h)
         p.drawPath(path)
 
-        # Subtle fill
-        fill_col = QColor(C.COLOR_FAINT); fill_col.setAlpha(80)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QBrush(fill_col))
-        p.fillPath(path, QBrush(fill_col))
+        # Glass fill using PANEL_GLASS tokens
+        panel_glass_fill(p, 0, 0, w, h)
+
+        # Redraw border on top of fill
+        p.setPen(QPen(bc, 1.0))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawPath(path)
 
         # Prompt ">"
-        p.setPen(QPen(QColor(C.COLOR_GLOW), 1))
+        p.setPen(QColor(C.CYAN))
         font = QFont(C.FONT_MONO, C.FONT_SIZE_BODY)
         font.setBold(True)
         p.setFont(font)
         p.drawText(8, 0, 16, h, Qt.AlignmentFlag.AlignVCenter, ">")
 
         # Input text
-        txt_col = QColor(C.COLOR_TEXT_HI)
-        p.setPen(txt_col)
+        tc = QColor(C.COLOR_TEXT)
+        p.setPen(tc)
         font2 = QFont(C.FONT_MONO, C.FONT_SIZE_BODY)
         p.setFont(font2)
-        p.drawText(26, 0, w - 32, h, Qt.AlignmentFlag.AlignVCenter, self._text)
+        fm = p.fontMetrics()
+        avail_w = w - 32
+        elided  = fm.elidedText(self._text, Qt.TextElideMode.ElideLeft, avail_w)
+        p.drawText(26, 0, avail_w, h, Qt.AlignmentFlag.AlignVCenter, elided)
 
-        # Cursor
-        if self._cursor_vis and self.hasFocus():
-            fm     = p.fontMetrics()
-            txt_w  = fm.horizontalAdvance(self._text)
-            cur_x  = 26 + txt_w + 2
-            cur_y  = h // 2 - 7
-            cur_col = QColor(C.COLOR_GLOW); cur_col.setAlpha(220)
+        # Cursor — always at end of displayed text
+        if self._cursor_vis and focused:
+            txt_w = fm.horizontalAdvance(elided)
+            cur_x = 26 + txt_w + 2
+            cur_c = QColor(C.CYAN); cur_c.setAlpha(200)
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(cur_col))
-            p.drawRect(cur_x, cur_y, 2, 14)
+            p.setBrush(QBrush(cur_c))
+            p.drawRect(cur_x, h // 2 - 6, 2, 12)
 
         p.end()
 
 
-# ---------------------------------------------------------------------------
-# Pulsing "THINKING..." indicator
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────
+# Thinking indicator
+# ─────────────────────────────────────────────────────────────────
 class _ThinkingLine(QWidget):
-    _FRAMES = ["THINKING.  ", "THINKING.. ", "THINKING..."]
+    _FRAMES = ["PROCESSING .  ", "PROCESSING .. ", "PROCESSING ..."]
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(17)
+        self.setFixedHeight(C.ROW_H_LOG)
         self.setStyleSheet("background: transparent;")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._frame = 0
         self._phase = 0.0
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._tick)
-        self._timer.start(400)
+        QTimer(self, timeout=self._tick, interval=400).start(400)
 
     def _tick(self):
         self._frame = (self._frame + 1) % len(self._FRAMES)
@@ -215,12 +223,9 @@ class _ThinkingLine(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
-
         alpha = int(160 + 95 * math.sin(self._phase))
-        col = QColor(C.COLOR_GLOW)
-        col.setAlpha(alpha)
+        col = QColor(C.CYAN); col.setAlpha(alpha)
         p.setPen(col)
-
         font = QFont(C.FONT_MONO, C.FONT_SIZE_BODY)
         font.setBold(True)
         p.setFont(font)
@@ -229,14 +234,11 @@ class _ThinkingLine(QWidget):
         p.end()
 
 
-# ---------------------------------------------------------------------------
-# CommandConsole — full widget
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────
+# CommandConsole
+# ─────────────────────────────────────────────────────────────────
 class CommandConsole(QWidget):
-    """
-    Futuristic command console with scrolling output and HUD input.
-    Signals: command_entered(str)
-    """
+    """Futuristic command console.  Signal: command_entered(str)"""
 
     command_entered = Signal(str)
 
@@ -256,39 +258,41 @@ class CommandConsole(QWidget):
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setStyleSheet("""
             QScrollArea { background: transparent; border: none; }
-            QScrollBar  { width: 0px; height: 0px; }
+            QScrollBar  { width: 0; height: 0; }
         """)
-
         self._output = _OutputArea(self)
         self._scroll.setWidget(self._output)
         outer.addWidget(self._scroll, 1)
+
+        # rangeChanged autoscroll — fires after layout recalculates content height
+        self._scroll.verticalScrollBar().rangeChanged.connect(self._on_range_changed)
 
         # Input
         self._input = _HUDInput(self)
         self._input.submitted.connect(self._on_submit)
         outer.addWidget(self._input)
 
-        # Boot greeting
+        self._thinking_line = None
         self._add_boot_lines()
 
     def _add_boot_lines(self):
-        lines = [
-            "ULTRON COMMAND INTERFACE v2.0",
+        for line in [
+            f"ULTRON COMMAND INTERFACE v{C.APP_VERSION}",
             "TYPE 'help' FOR AVAILABLE COMMANDS.",
-            "─" * 38,
-        ]
-        for l in lines:
-            self._output.add_line(l)
-        self._scroll_to_bottom()
+            "─" * 40,
+        ]:
+            self._output.add_line(line)
+
+    def _on_range_changed(self, _min: int, _max: int):
+        """Scroll to bottom whenever the scroll-area content height changes."""
+        self._scroll.verticalScrollBar().setValue(_max)
 
     def _on_submit(self, cmd: str):
         self._output.add_line(cmd, is_input=True)
         self.command_entered.emit(cmd)
-        self._scroll_to_bottom()
 
     def add_response(self, line: str):
         self._output.add_line(line)
-        self._scroll_to_bottom()
 
     def clear_output(self):
         for line in list(self._output._lines):
@@ -296,29 +300,19 @@ class CommandConsole(QWidget):
             line.deleteLater()
         self._output._lines.clear()
 
-    # ------------------------------------------------------------------
-    # Thinking indicator
-    # ------------------------------------------------------------------
     def set_thinking(self, active: bool):
-        """Show or hide the pulsing THINKING... indicator."""
         if active:
-            # Disable input while LLM is working
             self._input.setEnabled(False)
-            if not hasattr(self, '_thinking_line') or self._thinking_line is None:
+            if self._thinking_line is None:
                 self._thinking_line = _ThinkingLine(self._output)
                 self._output._layout.addWidget(self._thinking_line)
-            self._scroll_to_bottom()
         else:
             self._input.setEnabled(True)
             self._input.setFocus()
-            if hasattr(self, '_thinking_line') and self._thinking_line is not None:
+            if self._thinking_line is not None:
                 self._output._layout.removeWidget(self._thinking_line)
                 self._thinking_line.deleteLater()
                 self._thinking_line = None
-    def _scroll_to_bottom(self):
-        QTimer.singleShot(30, lambda: self._scroll.verticalScrollBar().setValue(
-            self._scroll.verticalScrollBar().maximum()
-        ))
 
     def give_focus(self):
         self._input.setFocus()
@@ -328,14 +322,25 @@ class CommandConsole(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
 
-        bg_col = QColor(C.COLOR_BG_GLASS); bg_col.setAlpha(220)
-        path = QPainterPath()
-        path.addRoundedRect(0, 0, w, h, C.PANEL_RADIUS, C.PANEL_RADIUS)
-        p.fillPath(path, QBrush(bg_col))
+        body = clipped_path(0, 0, w, h)
 
-        border_col = QColor(C.COLOR_PRIMARY); border_col.setAlpha(140)
-        p.setPen(QPen(border_col, 1.5))
+        # Glass background — uses PANEL_GLASS tokens via panel_glass_fill
+        panel_glass_fill(p, 0, 0, w, h)
+
+        # Border
+        bc = QColor(C.CYAN); bc.setAlpha(55)
+        p.setPen(QPen(bc, 1.0))
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawPath(path)
+        p.drawPath(body)
+
+        # Clip corner fill
+        tri = QPainterPath()
+        tri.moveTo(w - C.PANEL_CLIP, 0)
+        tri.lineTo(w, 0)
+        tri.lineTo(w, C.PANEL_CLIP)
+        tri.closeSubpath()
+        tc = QColor(C.CYAN); tc.setAlpha(30)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.fillPath(tri, QBrush(tc))
 
         p.end()

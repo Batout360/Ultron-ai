@@ -4,8 +4,8 @@
 import random
 from datetime import datetime
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QLabel
-from PySide6.QtCore    import Qt, QTimer
-from PySide6.QtGui     import QPainter, QColor, QFont, QPen
+from PySide6.QtCore    import Qt, QTimer, QRectF
+from PySide6.QtGui     import QPainter, QColor, QFont, QPen, QBrush, QPainterPath
 import theme as C
 
 
@@ -93,8 +93,7 @@ class _LogCanvas(QWidget):
         self._entries.append(entry)
         if len(self._entries) > self.MAX_ENTRIES:
             self._entries = self._entries[-self.MAX_ENTRIES:]
-        row_h  = 16
-        total_h = max(len(self._entries) * row_h + 8, 10)
+        total_h = max(len(self._entries) * C.ROW_H_LOG + C.SP_2, 10)
         self.setMinimumHeight(total_h)
         self.update()
 
@@ -104,42 +103,68 @@ class _LogCanvas(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        row_h = 16
-        font_ts  = QFont(C.FONT_MONO, C.FONT_SIZE_SMALL)
+        ROW   = C.ROW_H_LOG
+        font_ts  = QFont(C.FONT_MONO, C.FONT_SIZE_LABEL)
+        font_lvl = QFont(C.FONT_MONO, C.FONT_SIZE_LABEL)
+        font_lvl.setBold(True)
         font_msg = QFont(C.FONT_MONO, C.FONT_SIZE_SMALL)
 
-        # Only draw visible rows (simple culling)
+        # Measure fixed columns once
+        p.setFont(font_ts)
+        fm_ts  = p.fontMetrics()
+        TS_W   = fm_ts.horizontalAdvance("[00:00:00]") + 4   # timestamp column
+
+        p.setFont(font_lvl)
+        fm_lvl = p.fontMetrics()
+        LVL_W  = fm_lvl.horizontalAdvance("ALERT") + 8      # widest badge
+
+        MSG_X  = TS_W + LVL_W + C.SP_2
+
+        # Clip culling
         clip_top = event.rect().top()
         clip_bot = event.rect().bottom()
-        start_i  = max(0, clip_top // row_h - 1)
-        end_i    = min(len(self._entries), clip_bot // row_h + 2)
+        start_i  = max(0, clip_top // ROW - 1)
+        end_i    = min(len(self._entries), clip_bot // ROW + 2)
+
+        n_total = max(len(self._entries) - 1, 1)
 
         for i, entry in enumerate(self._entries[start_i:end_i], start=start_i):
-            y = i * row_h + row_h - 3
+            y_top  = i * ROW
+            y_base = y_top + ROW - 3   # text baseline
 
-            # Fade older entries slightly
-            age_factor = min(1.0, (i / max(len(self._entries) - 1, 1)) + 0.4)
+            age = min(1.0, (i / n_total) + 0.4)
 
-            # Timestamp
-            ts_col = QColor(C.COLOR_TEXT_LO)
-            ts_col.setAlpha(int(180 * age_factor))
-            p.setPen(ts_col)
+            # ── Timestamp ────────────────────────────────────
+            tc = QColor(C.COLOR_TEXT_LO); tc.setAlpha(int(160 * age))
+            p.setPen(tc)
             p.setFont(font_ts)
-            p.drawText(2, y, f"[{entry.ts}]")
+            p.drawText(2, y_base, f"[{entry.ts}]")
 
-            # Level badge
+            # ── Level badge (filled pill) ─────────────────────
             lvl_col = QColor(entry.color())
-            lvl_col.setAlpha(int(220 * age_factor))
-            p.setPen(lvl_col)
-            p.setFont(font_ts)
-            p.drawText(68, y, entry.level)
+            lvl_col.setAlpha(int(220 * age))
 
-            # Message
-            msg_col = QColor(C.COLOR_TEXT_MID)
-            msg_col.setAlpha(int(200 * age_factor))
-            p.setPen(msg_col)
+            # Pill background — very faint fill
+            pill_x = TS_W
+            pill_h = ROW - 4
+            pill_y = y_top + 2
+            pill_w = LVL_W
+            bg_col = QColor(entry.color()); bg_col.setAlpha(int(30 * age))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(bg_col))
+            p.drawRoundedRect(QRectF(pill_x, pill_y, pill_w, pill_h), 2, 2)
+
+            # Badge text
+            p.setPen(lvl_col)
+            p.setFont(font_lvl)
+            p.drawText(QRectF(pill_x, pill_y, pill_w, pill_h),
+                       Qt.AlignmentFlag.AlignCenter, entry.level)
+
+            # ── Message ───────────────────────────────────────
+            mc = QColor(C.COLOR_TEXT_MID); mc.setAlpha(int(190 * age))
+            p.setPen(mc)
             p.setFont(font_msg)
-            p.drawText(104, y, entry.message)
+            p.drawText(MSG_X, y_base, entry.message)
 
         p.end()
 
@@ -175,7 +200,9 @@ class SystemLogWidget(QWidget):
         self._boot_timer.timeout.connect(self._boot_step)
         self._boot_timer.start(300)
 
-        # Ongoing events
+        # Ongoing events — random pool fires only when no real event arrived
+        import time as _time
+        self._last_real_event_ts = _time.monotonic()
         self._event_timer = QTimer(self)
         self._event_timer.timeout.connect(self._add_random_event)
         self._event_timer.start(C.LOG_UPDATE_INTERVAL_MS)
@@ -190,10 +217,16 @@ class SystemLogWidget(QWidget):
             self._boot_timer.stop()
 
     def _add_random_event(self):
-        msg, lvl = random.choice(_EVENTS)
-        self.add_entry(msg, lvl)
+        """Fallback only — fires when no real event arrived in the last interval."""
+        import time as _time
+        now = _time.monotonic()
+        if now - self._last_real_event_ts >= C.LOG_UPDATE_INTERVAL_MS / 1000.0:
+            msg, lvl = random.choice(_EVENTS)
+            self.add_entry(msg, lvl)
 
     def add_entry(self, message: str, level: str = "INFO"):
+        import time as _time
+        self._last_real_event_ts = _time.monotonic()
         entry = LogEntry(message, level)
         self._canvas.add_entry(entry)
         # Auto-scroll to bottom

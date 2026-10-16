@@ -1,168 +1,189 @@
-# ui/hud_panel.py
-# Base HUD Panel — glowing orange glass frame with title bar
+# ui/hud_panel.py — ULTRON 3.0
+# HUD Panel — JARVIS / Iron Man aesthetic
+#
+# v3.0 changes:
+#   • _clipped_path / glass fill now imported from ui.utils (single source)
+#   • StatusDot is 3-state: OK / WARN / CRIT  (set_status(state: str))
+#   • Collapsible panels animate via QPropertyAnimation (180 ms)
+#   • paintEvent uses C.PANEL_GLASS_TOP / PANEL_GLASS_BOT tokens
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSizePolicy
-from PySide6.QtCore    import Qt, QPropertyAnimation, QEasingCurve, Property, QRect
+import math
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+from PySide6.QtCore    import (
+    Qt, QRectF, QPointF,
+    QPropertyAnimation, QEasingCurve, QByteArray,
+)
 from PySide6.QtGui     import (
     QPainter, QPen, QColor, QFont, QBrush,
     QLinearGradient, QPainterPath,
 )
 import theme as C
+from ui.utils import clipped_path, panel_glass_fill
 
 
+# ─────────────────────────────────────────────────────────────────
+# HUDPanel
+# ─────────────────────────────────────────────────────────────────
 class HUDPanel(QWidget):
     """
-    Base class for all HUD panel widgets.
+    Base panel.  Public: self.content_layout (QVBoxLayout).
 
-    Provides:
-    - Orange glass background with gradient
-    - Glowing border with corner notches
-    - Title bar with section label
-    - Content area via self.content_layout
-    - Hover glow animation
-    - Click-to-expand toggle
+    If collapsible=True, clicking the heading band toggles the body
+    via a 180 ms height animation.
     """
 
-    def __init__(self, title: str, parent=None, collapsible=False):
+    def __init__(self, title: str, parent=None, collapsible: bool = False):
         super().__init__(parent)
         self._title       = title.upper()
         self._collapsible = collapsible
-        self._glow        = 0.0     # 0.0 – 1.0
-        self._hover       = False
         self._expanded    = True
+        self._hover       = False
 
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
-        # Main layout
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(6, 28, 6, 6)
-        outer.setSpacing(4)
+        H = C.PANEL_HEAD_H   # heading band height in px
 
-        # Content widget (so we can hide it on collapse)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(C.SP_2, H + C.SP_1, C.SP_2, C.SP_2)
+        outer.setSpacing(C.SP_1)
+
         self._content_widget = QWidget(self)
         self._content_widget.setStyleSheet("background: transparent;")
         self.content_layout  = QVBoxLayout(self._content_widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(3)
-
+        self.content_layout.setSpacing(C.SP_1)
         outer.addWidget(self._content_widget)
 
-    # ------------------------------------------------------------------
-    def enterEvent(self, event):
-        self._hover = True
-        self._glow  = 1.0
-        self.update()
+        # Animation — collapses content height 0 ↔ natural size in 180 ms
+        if collapsible:
+            self._anim = QPropertyAnimation(
+                self._content_widget, QByteArray(b"maximumHeight"), self
+            )
+            self._anim.setDuration(180)
+            self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        else:
+            self._anim = None
 
-    def leaveEvent(self, event):
-        self._hover = False
-        self._glow  = 0.0
-        self.update()
+    def enterEvent(self, e):
+        self._hover = True;  self.update()
 
-    def mousePressEvent(self, event):
-        if self._collapsible and event.pos().y() < 28:
-            self._expanded = not self._expanded
+    def leaveEvent(self, e):
+        self._hover = False; self.update()
+
+    def mousePressEvent(self, e):
+        if self._collapsible and e.pos().y() < C.PANEL_HEAD_H:
+            self._toggle_collapse()
+
+    def _toggle_collapse(self):
+        self._expanded = not self._expanded
+        if self._anim is not None:
+            if self._expanded:
+                # Expand: 0 → natural height (use a large sentinel)
+                self._content_widget.setVisible(True)
+                self._anim.setStartValue(0)
+                self._anim.setEndValue(self._content_widget.sizeHint().height())
+            else:
+                # Collapse: natural height → 0
+                self._anim.setStartValue(self._content_widget.height())
+                self._anim.setEndValue(0)
+                # Hide after animation finishes
+                self._anim.finished.connect(
+                    lambda: self._content_widget.setVisible(self._expanded)
+                )
+            self._anim.start()
+        else:
             self._content_widget.setVisible(self._expanded)
-            self.update()
+        self.update()
 
-    # ------------------------------------------------------------------
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
+        H    = C.PANEL_HEAD_H
 
-        # Glass background
-        bg_path = QPainterPath()
-        bg_path.addRoundedRect(0, 0, w, h, C.PANEL_RADIUS, C.PANEL_RADIUS)
+        body = clipped_path(0, 0, w, h)
 
-        bg_grad = QLinearGradient(0, 0, 0, h)
-        bg1 = QColor(C.COLOR_BG_GLASS); bg1.setAlpha(230)
-        bg2 = QColor(C.COLOR_BG_PANEL); bg2.setAlpha(200)
-        bg_grad.setColorAt(0.0, bg1)
-        bg_grad.setColorAt(1.0, bg2)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.fillPath(bg_path, QBrush(bg_grad))
+        # Glass fill — uses PANEL_GLASS_TOP / BOT tokens via utils
+        panel_glass_fill(p, 0, 0, w, h)
 
-        # Border glow
-        border_alpha = int(120 + 120 * self._glow)
-        border_col   = QColor(C.COLOR_PRIMARY if not self._hover else C.COLOR_BRIGHT)
-        border_col.setAlpha(border_alpha)
-        p.setPen(QPen(border_col, 1.5))
+        # Border — dim normally, bright on hover
+        bc = QColor(C.CYAN); bc.setAlpha(180 if self._hover else 60)
+        p.setPen(QPen(bc, 1.0))
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawPath(bg_path)
+        p.drawPath(body)
 
-        # Extra outer glow when hovered
+        # Hover outer glow
         if self._hover:
-            glow_col = QColor(C.COLOR_PRIMARY); glow_col.setAlpha(40)
-            p.setPen(QPen(glow_col, 4))
-            glow_path = QPainterPath()
-            glow_path.addRoundedRect(-2, -2, w + 4, h + 4, C.PANEL_RADIUS + 2, C.PANEL_RADIUS + 2)
-            p.drawPath(glow_path)
+            gc = QColor(C.CYAN); gc.setAlpha(18)
+            p.setPen(QPen(gc, 6))
+            p.drawPath(clipped_path(-3, -3, w + 6, h + 6))
 
-        # Corner notches
-        notch_col = QColor(C.COLOR_GLOW); notch_col.setAlpha(200)
-        p.setPen(QPen(notch_col, 1.5))
-        nc = 5  # notch length
-        corners = [(0, 0), (w, 0), (0, h), (w, h)]
-        for (cx, cy) in corners:
-            sx = 1 if cx == 0 else -1
-            sy = 1 if cy == 0 else -1
-            p.drawLine(cx, cy, cx + sx * nc, cy)
-            p.drawLine(cx, cy, cx, cy + sy * nc)
+        # Heading band
+        hg = QLinearGradient(0, 0, w, 0)
+        h1 = QColor(C.CYAN); h1.setAlpha(32)
+        h2 = QColor(C.CYAN); h2.setAlpha(6)
+        hg.setColorAt(0.0, h1); hg.setColorAt(1.0, h2)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.fillPath(clipped_path(0, 0, w, H), QBrush(hg))
 
-        # Title bar background
-        title_grad = QLinearGradient(0, 0, w, 0)
-        t1 = QColor(C.COLOR_PRIMARY); t1.setAlpha(60)
-        t2 = QColor(C.COLOR_PRIMARY); t2.setAlpha(10)
-        title_grad.setColorAt(0.0, t1)
-        title_grad.setColorAt(1.0, t2)
-        title_bg = QPainterPath()
-        title_bg.addRoundedRect(1, 1, w - 2, 26, C.PANEL_RADIUS, C.PANEL_RADIUS)
-        p.fillPath(title_bg, QBrush(title_grad))
+        # Heading rule
+        rc = QColor(C.CYAN); rc.setAlpha(40)
+        p.setPen(QPen(rc, 1))
+        p.drawLine(0, H, w, H)
 
-        # Title text
-        title_col = QColor(C.COLOR_BRIGHT)
-        title_col.setAlpha(240)
-        p.setPen(title_col)
+        # Title — FONT_SIZE_TITLE, bold, letter-spaced
+        tc = QColor(C.CYAN); tc.setAlpha(230)
+        p.setPen(tc)
         font = QFont(C.FONT_HUD, C.FONT_SIZE_TITLE)
         font.setBold(True)
-        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 3)
+        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
         p.setFont(font)
-        p.drawText(10, 18, self._title)
+        p.drawText(QRectF(C.SP_2, 0, w - C.SP_2 * 3, H),
+                   Qt.AlignmentFlag.AlignVCenter, self._title)
 
-        # Collapse indicator
+        # Collapse chevron
         if self._collapsible:
-            ind_col = QColor(C.COLOR_DIM); ind_col.setAlpha(180)
-            p.setPen(ind_col)
-            font2 = QFont(C.FONT_MONO, C.FONT_SIZE_SMALL)
+            cc = QColor(C.CYAN_DIM); cc.setAlpha(160)
+            p.setPen(cc)
+            font2 = QFont(C.FONT_MONO, C.FONT_SIZE_BODY)
             p.setFont(font2)
-            p.drawText(w - 20, 18, "▾" if self._expanded else "▸")
+            p.drawText(QRectF(w - 20, 0, 16, H),
+                       Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+                       "▾" if self._expanded else "▸")
 
-        # Bottom accent line
-        line_col = QColor(C.COLOR_PRIMARY); line_col.setAlpha(80)
-        p.setPen(QPen(line_col, 1))
-        p.drawLine(1, 26, w - 1, 26)
+        # Clip-corner accent triangle
+        tri = QPainterPath()
+        tri.moveTo(w - C.PANEL_CLIP, 0)
+        tri.lineTo(w, 0)
+        tri.lineTo(w, C.PANEL_CLIP)
+        tri.closeSubpath()
+        ta = QColor(C.CYAN); ta.setAlpha(50)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.fillPath(tri, QBrush(ta))
 
         p.end()
 
 
-# ---------------------------------------------------------------------------
-# Helper: a single labeled metric row
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────
+# MetricRow  — label · bar · value
+# ─────────────────────────────────────────────────────────────────
 class MetricRow(QWidget):
-    """Label + bar + value on one row."""
+
+    # Label column is fixed at this width so bars always start at the same x
+    _LBL_W = 52
 
     def __init__(self, label: str, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(22)
+        self.setFixedHeight(C.ROW_H)
         self._label = label.upper()
-        self._value = 0.0        # 0-100
+        self._value = 0.0
         self._text  = "0%"
         self.setStyleSheet("background: transparent;")
 
     def set_value(self, v: float, text: str = None):
-        self._value = max(0.0, min(100.0, v))
+        self._value = max(0.0, min(100.0, float(v)))
         self._text  = text or f"{self._value:.0f}%"
         self.update()
 
@@ -171,77 +192,133 @@ class MetricRow(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
 
-        # Label
-        lbl_col = QColor(C.COLOR_TEXT_MID)
-        p.setPen(lbl_col)
-        font = QFont(C.FONT_MONO, C.FONT_SIZE_SMALL)
-        p.setFont(font)
-        p.drawText(0, 0, 72, h, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-                   self._label)
+        VAL_W  = C.VAL_COL_W    # value column width from theme token
+        LBL_W  = self._LBL_W
+        GAP    = C.SP_1
+        bar_x  = LBL_W + GAP
+        bar_w  = w - LBL_W - GAP - VAL_W - GAP
+        bar_y  = (h - C.BAR_H) // 2
+        radius = C.BAR_H / 2
 
-        # Bar track
-        bar_x, bar_y = 76, h // 2 - 3
-        bar_w, bar_h = w - 76 - 40, 6
-        track_col = QColor(C.COLOR_FAINT)
+        # Label — FONT_SIZE_SMALL, muted
+        font_lbl = QFont(C.FONT_MONO, C.FONT_SIZE_SMALL)
+        p.setFont(font_lbl)
+        lc = QColor(C.COLOR_TEXT_MID)
+        p.setPen(lc)
+        p.drawText(0, 0, LBL_W, h, Qt.AlignmentFlag.AlignVCenter, self._label)
+
+        # Track — rounded
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QBrush(track_col))
-        p.drawRoundedRect(bar_x, bar_y, bar_w, bar_h, 2, 2)
+        tc = QColor(C.CYAN_FAINT); tc.setAlpha(180)
+        p.setBrush(QBrush(tc))
+        p.drawRoundedRect(QRectF(bar_x, bar_y, bar_w, C.BAR_H), radius, radius)
 
-        # Bar fill
-        fill_w = int(bar_w * self._value / 100)
-        if fill_w > 0:
-            # Color shifts red when critical
+        # Fill — colour by severity, rounded
+        fw = int(bar_w * self._value / 100)
+        if fw > 0:
             if self._value >= 90:
-                fill_col = QColor(C.COLOR_CRITICAL)
+                fc = QColor(C.COLOR_CRITICAL)
             elif self._value >= 75:
-                fill_col = QColor(C.COLOR_WARN)
+                fc = QColor(C.COLOR_WARN)
             else:
-                fill_col = QColor(C.COLOR_PRIMARY)
-            fill_col.setAlpha(210)
-            p.setBrush(QBrush(fill_col))
-            p.drawRoundedRect(bar_x, bar_y, fill_w, bar_h, 2, 2)
+                fc = QColor(C.CYAN)
+            fc.setAlpha(210)
+            p.setBrush(QBrush(fc))
+            p.drawRoundedRect(QRectF(bar_x, bar_y, fw, C.BAR_H), radius, radius)
 
-            # Glow cap
-            glow_col = QColor(C.COLOR_GLOW); glow_col.setAlpha(200)
-            p.setBrush(QBrush(glow_col))
-            p.drawEllipse(bar_x + fill_w - 3, bar_y - 1, 5, 8)
+            # Glow cap — small bright dot at the leading edge
+            gc = QColor(C.CYAN); gc.setAlpha(240)
+            p.setBrush(QBrush(gc))
+            cap_x = bar_x + fw - radius
+            p.drawEllipse(QPointF(cap_x, bar_y + C.BAR_H / 2), radius + 1, radius + 1)
 
-        # Value text
-        val_col = QColor(C.COLOR_TEXT_HI)
-        p.setPen(val_col)
-        p.drawText(w - 38, 0, 38, h,
+        # Value — FONT_SIZE_BODY bold, gold
+        font_val = QFont(C.FONT_MONO, C.FONT_SIZE_BODY)
+        font_val.setBold(True)
+        p.setFont(font_val)
+        vc = QColor(C.GOLD)
+        p.setPen(vc)
+        p.drawText(w - VAL_W, 0, VAL_W, h,
                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
                    self._text)
         p.end()
 
 
-# ---------------------------------------------------------------------------
-# Helper: small status indicator dot
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────
+# StatusDot  — 3-state coloured dot + label text
+# ─────────────────────────────────────────────────────────────────
 class StatusDot(QWidget):
+    """
+    3-state status indicator.
+    Call set_status(state)  where state is one of:
+        "ok"   | "OK"   → cyan dot
+        "warn" | "WARN" → warning amber dot
+        "crit" | "CRIT" → critical red dot
+    Legacy 2-state bool (set_status(True/False)) still works for
+    backward compatibility.
+    """
+
+    DOT_R = 4   # dot radius in px
+
+    # Colour map keyed on normalised state string
+    _STATE_COLORS = {
+        "ok":   "CYAN",
+        "warn": "WARN",
+        "crit": "CRIT",
+    }
+
     def __init__(self, label: str, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(18)
+        self.setFixedHeight(C.ROW_H)
         self._label = label
-        self._ok    = True
+        self._state = "ok"   # "ok" | "warn" | "crit"
         self.setStyleSheet("background: transparent;")
 
-    def set_status(self, ok: bool):
-        self._ok = ok
+    # ── Public ────────────────────────────────────────────────────
+    def set_status(self, state):
+        """Accept str ('ok'/'warn'/'crit') or bool (True→ok, False→crit)."""
+        if isinstance(state, bool):
+            self._state = "ok" if state else "crit"
+        else:
+            self._state = str(state).lower()
         self.update()
 
+    def set_label(self, label: str):
+        self._label = label
+        self.update()
+
+    # ── Paint ─────────────────────────────────────────────────────
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         h = self.height()
-        dot_col = QColor(C.COLOR_PRIMARY if self._ok else C.COLOR_CRITICAL)
+
+        # Pick dot colour from state
+        state = self._state if self._state in self._STATE_COLORS else "ok"
+        if state == "ok":
+            dot_col = QColor(C.COLOR_OK)
+        elif state == "warn":
+            dot_col = QColor(C.COLOR_WARN)
+        else:
+            dot_col = QColor(C.COLOR_CRITICAL)
+
+        # Outer glow halo
+        glow = QColor(dot_col); glow.setAlpha(40)
         p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(glow))
+        p.drawEllipse(QPointF(self.DOT_R + 1, h / 2),
+                      self.DOT_R + 2, self.DOT_R + 2)
+
+        # Dot core — vertically centred
         p.setBrush(QBrush(dot_col))
-        p.drawEllipse(0, h // 2 - 4, 8, 8)
-        txt_col = QColor(C.COLOR_TEXT_MID)
-        p.setPen(txt_col)
+        p.drawEllipse(QPointF(self.DOT_R + 1, h / 2), self.DOT_R, self.DOT_R)
+
+        # Label — FONT_SIZE_SMALL, muted
+        tc = QColor(C.COLOR_TEXT_MID)
+        p.setPen(tc)
         font = QFont(C.FONT_MONO, C.FONT_SIZE_SMALL)
         p.setFont(font)
-        p.drawText(14, 0, self.width() - 14, h,
+        left = self.DOT_R * 2 + C.SP_2
+        p.drawText(left, 0, self.width() - left, h,
                    Qt.AlignmentFlag.AlignVCenter, self._label.upper())
         p.end()

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ULTRON AI CORE</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background: #000000;
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Force the Three.js canvas to always fill its container */
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* ── HUD Overlay ─────────────────────────────────── */
+        #hud {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0 10px;
+        }
+
+        /* Top label */
+        #label-top {
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            color: #ffb957;
+            text-shadow: 0 0 12px #ffb95788, 0 0 28px #ffb95744;
+            opacity: 0.9;
+        }
+
+        /* Centre cluster */
+        #label-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        #label-proc {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffd080;
+            text-shadow: 0 0 18px #ffd08088, 0 0 40px #ffd08044;
+            line-height: 1;
+        }
+
+        #label-neural {
+            font-size: 8px;
+            letter-spacing: 2px;
+            color: #a06020;
+        }
+
+        #label-conf {
+            font-size: 8px;
+            letter-spacing: 2px;
+            color: #ffb95788;
+        }
+
+        /* Bottom task label */
+        #label-task {
+            font-size: 8px;
+            letter-spacing: 3px;
+            color: #65eaff;
+            text-shadow: 0 0 10px #65eaff66;
+            opacity: 0.7;
+        }
+
+        /* faint crosshair */
+        #crosshair-h, #crosshair-v {
+            position: absolute;
+            background: #ff8c0011;
+        }
+        #crosshair-h {
+            left: 0; right: 0;
+            top: 50%; height: 1px;
+            transform: translateY(-50%);
+        }
+        #crosshair-v {
+            top: 0; bottom: 0;
+            left: 50%; width: 1px;
+            transform: translateX(-50%);
+        }
+    </style>
+
+    <!-- Three.js via importmap — self-contained, no build step -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <!-- Crosshair lines (behind HUD text) -->
+    <div id="crosshair-h"></div>
+    <div id="crosshair-v"></div>
+
+    <!-- HUD text overlay -->
+    <div id="hud">
+        <div id="label-top">AI CORE</div>
+        <div id="label-center">
+            <div id="label-proc">72%</div>
+            <div id="label-neural">NEURAL  72%</div>
+            <div id="label-conf">CONF  91%</div>
+        </div>
+        <div id="label-task">[ MONITORING ]</div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls }  from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass }from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // ── CONFIG ────────────────────────────────────────────────
+        const COUNT      = 20000;
+        const SPEED_MULT = 1.0;
+
+        // ── SCENE ─────────────────────────────────────────────────
+        const scene = new THREE.Scene();
+        scene.fog   = new THREE.FogExp2(0x000000, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(
+            60, window.innerWidth / window.innerHeight, 0.1, 2000
+        );
+        camera.position.set(0, 0, 100);
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            powerPreference: 'high-performance',
+            // Transparent canvas so Qt's dark background shows if needed
+            alpha: true,
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 1);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // ── ORBIT (auto-spin, no manual drag) ────────────────────
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping   = true;
+        controls.autoRotate      = true;
+        controls.autoRotateSpeed = 1.2;
+        controls.enableZoom      = false;
+        controls.enablePan       = false;
+        controls.enableRotate    = false;
+
+        // ── BLOOM ─────────────────────────────────────────────────
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+
+        const bloom = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            1.8,   // strength
+            0.40,  // radius
+            0.00   // threshold (glow everything)
+        );
+        composer.addPass(bloom);
+
+        // ── INSTANCED MESH ────────────────────────────────────────
+        const geometry = new THREE.TetrahedronGeometry(0.22);
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+        const mesh = new THREE.InstancedMesh(geometry, material, COUNT);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(mesh);
+
+        // ── POSITION BUFFER (for LERP) ────────────────────────────
+        const positions = new Array(COUNT);
+        for (let i = 0; i < COUNT; i++) {
+            positions[i] = new THREE.Vector3(
+                (Math.random() - 0.5) * 80,
+                (Math.random() - 0.5) * 80,
+                (Math.random() - 0.5) * 80
+            );
+        }
+        // Initialise all colours to dim amber
+        const _initColor = new THREE.Color(0x332200);
+        for (let i = 0; i < COUNT; i++) mesh.setColorAt(i, _initColor);
+
+        // ── PARAMS (updated by Python via window.updateAIState) ────
+        const PARAMS = {
+            signalSpeed   : 1.8,
+            fireIntensity : 0.72,
+            brainSize     : 44,
+            circuitDense  : 3.5,
+            coreGlow      : 0.65,
+        };
+
+        // ── HUD ELEMENTS ──────────────────────────────────────────
+        const elProc   = document.getElementById('label-proc');
+        const elNeural = document.getElementById('label-neural');
+        const elConf   = document.getElementById('label-conf');
+        const elTask   = document.getElementById('label-task');
+
+        // Public API — called by Python: page.runJavaScript("updateAIState(...)")
+        window.updateAIState = function(neural, proc, conf, task) {
+            elProc.textContent   = `${Math.round(proc)}%`;
+            elNeural.textContent = `NEURAL  ${Math.round(neural)}%`;
+            elConf.textContent   = `CONF  ${Math.round(conf)}%`;
+            elTask.textContent   = `[ ${task} ]`;
+        };
+
+        // ── REUSABLE OBJECTS (avoid per-frame alloc) ──────────────
+        const dummy  = new THREE.Object3D();
+        const color  = new THREE.Color();
+        const target = new THREE.Vector3();
+        const clock  = new THREE.Clock();
+
+        // ── ANIMATION LOOP ────────────────────────────────────────
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = clock.getElapsedTime() * SPEED_MULT;
+            const t    = time * PARAMS.signalSpeed;
+
+            const {
+                fireIntensity,
+                brainSize,
+                coreGlow,
+            } = PARAMS;
+
+            controls.update();
+
+            // Global Y rotation
+            const rotA = time * 0.07;
+            const cosR = Math.cos(rotA);
+            const sinR = Math.sin(rotA);
+
+            for (let i = 0; i < COUNT; i++) {
+
+                // ── Per-particle deterministic seeds ──────────────
+                const seed  = i * 1.6180339887;
+                const seedB = i * 2.2360679774;
+                const seedC = i * 0.7071067811;
+                const seedD = i * 1.4142135623;
+
+                const fA = seed  * 7919.0 - Math.floor(seed  * 7919.0);
+                const fB = seedB * 6271.0 - Math.floor(seedB * 6271.0);
+                const fC = seedC * 4987.0 - Math.floor(seedC * 4987.0);
+                const fD = seedD * 3571.0 - Math.floor(seedD * 3571.0);
+
+                const norm  = i / COUNT;
+                const layer = i % 9;
+
+                // ── Brain surface base geometry ───────────────────
+                const phi    = fA * Math.PI;
+                const theta  = fB * Math.PI * 2.0;
+                const sinPhi = Math.sin(phi);
+                const cosPhi = Math.cos(phi);
+                const sinTh  = Math.sin(theta);
+                const cosTh  = Math.cos(theta);
+
+                const bx0 = brainSize * 1.15 * sinPhi * cosTh;
+                const by0 = brainSize * 0.82 * cosPhi;
+                const bz0 = brainSize * 0.95 * sinPhi * sinTh;
+
+                const hemi    = bx0 >= 0 ? 1.0 : -1.0;
+                const fissure = Math.exp(-bx0 * bx0 * 0.0012) * 5.5;
+                const bx      = bx0 + hemi * fissure;
+
+                const gyriFreq = 6.0;
+                const gyri     = 1.8 * (
+                    Math.sin(phi * gyriFreq + fC * 4.0) *
+                    Math.cos(theta * gyriFreq * 0.7 + fD * 3.0)
+                );
+                const nx = sinPhi * cosTh;
+                const ny = cosPhi;
+                const nz = sinPhi * sinTh;
+                const gx = bx  + nx * gyri;
+                const gy = by0 + ny * gyri;
+                const gz = bz0 + nz * gyri;
+
+                // ── Layer geometry + colour ───────────────────────
+                let px, py, pz, hue, sat, lit;
+
+                if (layer <= 2) {
+                    // CORTEX SHELL
+                    const jitter = 0.9 + fC * 1.2;
+                    const pulse  = Math.sin(t * 1.4 + fA * 9.7) * 0.5;
+                    px = gx + nx * (jitter + pulse);
+                    py = gy + ny * (jitter + pulse);
+                    pz = gz + nz * (jitter + pulse);
+                    hue = 0.095 + 0.025 * Math.sin(norm * 11.0 + t * 0.3);
+                    sat = 0.95;
+                    lit = 0.28 + 0.18 * fA + 0.12 * Math.abs(pulse);
+
+                } else if (layer <= 4) {
+                    // WHITE MATTER / CIRCUIT AXONS
+                    const tractIdx = Math.floor(fC * 180.0);
+                    const tractAng = tractIdx * 0.03490658;
+                    const tractPos = fB;
+                    const tractRad = brainSize * (0.30 + 0.55 * tractPos);
+                    const latBand  = Math.floor(fD * 9.0) * 0.3490658;
+                    const cosLat   = Math.cos(latBand);
+                    const sinLat   = Math.sin(latBand);
+                    px = tractRad * Math.cos(tractAng) * sinLat;
+                    py = tractRad * cosLat * (0.85 + 0.15 * Math.sin(t * 0.5 + tractIdx * 0.4));
+                    pz = tractRad * Math.sin(tractAng) * sinLat;
+                    const flicker = Math.sin(t * 3.0 + tractPos * 6.28 + tractIdx * 1.3) * fireIntensity;
+                    hue = 0.08 + 0.03 * Math.sin(tractPos * 8.0 + t * 0.8);
+                    sat = 1.0;
+                    lit = 0.22 + 0.30 * tractPos + 0.28 * Math.abs(flicker);
+
+                } else if (layer <= 6) {
+                    // SIGNAL WAVEFRONTS
+                    const axonIdx = Math.floor(fA * 60.0);
+                    const axonAng = axonIdx * 0.10471975;
+                    const axonLat = Math.floor(fD * 6.0) * 0.5235987;
+                    const signalT = fB + t * 0.55 + axonIdx * 0.07;
+                    const sigPos  = signalT - Math.floor(signalT);
+                    const sigR    = brainSize * (0.08 + 0.88 * sigPos);
+                    const cosALat = Math.cos(axonLat);
+                    const sinALat = Math.sin(axonLat);
+                    px = sigR * Math.cos(axonAng) * sinALat;
+                    py = sigR * cosALat;
+                    pz = sigR * Math.sin(axonAng) * sinALat;
+                    const spike = Math.exp(-Math.pow((sigPos - 0.9) * 12.0, 2.0));
+                    const tail  = Math.exp(-Math.pow((sigPos - 0.85) * 4.0, 2.0)) * 0.4;
+                    hue = 0.07 + 0.04 * spike;
+                    sat = 1.0;
+                    lit = 0.35 + 0.55 * (spike + tail) * fireIntensity;
+
+                } else if (layer === 7) {
+                    // EQUATORIAL ARC RING
+                    const ringAngle = fA * 6.2831853 + t * 0.22;
+                    const ringTilt  = fB * 0.5 - 0.25;
+                    const ringR     = brainSize * (1.02 + 0.04 * Math.sin(t * 2.0 + fA * 12.0));
+                    const ringSpread= 1.5 * fC - 0.75;
+                    px = ringR * Math.cos(ringAngle);
+                    py = ringR * Math.sin(ringTilt) + ringSpread;
+                    pz = ringR * Math.sin(ringAngle);
+                    const ringPulse = Math.sin(t * 4.0 + fA * 6.28) * 0.5 + 0.5;
+                    hue = 0.10 + 0.02 * ringPulse;
+                    sat = 1.0;
+                    lit = 0.50 + 0.40 * ringPulse * coreGlow;
+
+                } else {
+                    // MOLTEN CORE
+                    const coreR   = brainSize * 0.18 * (0.4 + 0.6 * fA);
+                    const coreAng = fB * 6.2831853 + t * (1.5 + fC * 2.0);
+                    const coreEl  = (fD - 0.5) * 1.8;
+                    const twist   = Math.sin(t * 2.3 + fA * 5.0) * 0.8;
+                    px = coreR * Math.cos(coreAng + twist);
+                    py = coreR * Math.sin(coreEl) + Math.sin(t * 1.7 + fB * 4.0) * brainSize * 0.04;
+                    pz = coreR * Math.sin(coreAng + twist * 0.7);
+                    const radNorm = coreR / (brainSize * 0.18 + 0.001);
+                    hue = 0.06 + 0.06 * radNorm;
+                    sat = 0.90 + 0.10 * radNorm;
+                    lit = 0.80 - 0.45 * radNorm + 0.15 * coreGlow * Math.abs(Math.sin(t * 3.1 + fA * 7.0));
+                }
+
+                // ── Apply global Y rotation ───────────────────────
+                const finalX = px * cosR - pz * sinR;
+                const finalZ = px * sinR + pz * cosR;
+
+                // ── LERP to target ────────────────────────────────
+                target.set(finalX, py, finalZ);
+                positions[i].lerp(target, 0.1);
+
+                dummy.position.copy(positions[i]);
+                dummy.updateMatrix();
+                mesh.setMatrixAt(i, dummy.matrix);
+                mesh.setColorAt(i, color.setHSL(hue, sat, lit));
+            }
+
+            mesh.instanceMatrix.needsUpdate = true;
+            mesh.instanceColor.needsUpdate  = true;
+
+            composer.render();
+        }
+
+        animate();
+
+        // ── RESIZE — use ResizeObserver so Qt WebEngine resize is caught ──
+        // window 'resize' is unreliable inside QWebEngineView; observing the
+        // container element fires correctly whenever the widget is resized.
+        function onResize(w, h) {
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h, false);   // false = don't set canvas CSS size
+            composer.setSize(w, h);
+        }
+
+        const ro = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const { width, height } = entry.contentRect;
+                if (width > 0 && height > 0) onResize(width, height);
+            }
+        });
+        ro.observe(document.getElementById('canvas-container'));
+
+        // Also keep window resize as a fallback
+        window.addEventListener('resize', () => {
+            onResize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
